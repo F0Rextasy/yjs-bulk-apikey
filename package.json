@@ -1,0 +1,47 @@
+{
+  "name": "yjs-bulk-apikey",
+  "version": "1.0.0",
+  "description": "Bulk API keys for yjs.im — free tier: 14 models (deepseek-v4-flash-0731, glm-5.2/5.3, kimi-k3, mimo-v2.6-flash) + daily check-in credits; 5.6–7.2k per account. One account per key; mint any number.",
+  "license": "MIT",
+  "type": "commonjs",
+  "bin": {
+    "yjs-bulk-apikey": "cli.js",
+    "yjs-bulk-apikey-launcher": "launcher.js"
+  },
+  "main": "cli.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node launcher.js",
+    "mint": "node cli.js"
+  },
+  "keywords": [
+    "api-key",
+    "bulk",
+    "register",
+    "launcher",
+    "yjs",
+    "bulk",
+    "apikey"
+  ],
+  "files": [
+    "cdp.js",
+    "chrome-flags.js",
+    "cli.js",
+    "imap.js",
+    "launcher.js",
+    "lib.js",
+    "mailbox-imap.js",
+    "mint-newapi-pinned.js",
+    "mint.js",
+    "newapi.js",
+    "probe-group.js",
+    "probe-verify.js",
+    "provider-cli.js",
+    "proxy.js",
+    "xwave-lib.js",
+    "README.md",
+    "LICENSE"
+  ]
+}

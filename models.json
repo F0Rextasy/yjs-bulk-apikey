@@ -1,0 +1,21 @@
+{
+  "at": "2026-10-15T08:08:39.322Z",
+  "base": "https://api.yjs.im",
+  "group": "Free",
+  "models": [
+    "glm-5.2",
+    "deepseek-v4-flash-0731",
+    "kimi-k3",
+    "glm-5.3",
+    "deepseek-v4.1-flash",
+    "mimo-v2.6-flash",
+    "glm-5.3-flash",
+    "sensenova-6.8-flash-lite",
+    "qwen3.8-flash-next",
+    "step-5-preview",
+    "deepseek-v4.1-flash-request",
+    "swe-1-6",
+    "hy3",
+    "deepseek-v4-flash"
+  ]
+}
