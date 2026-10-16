@@ -1,25 +1,25 @@
 <div align="center">
 
 ```
-███████╗ ██████╗ ██████╗ ███████╗██╗  ██╗████████╗ █████╗ ███████╗██╗   ██╗
-██╔════╝██╔═████╗██╔══██╗██╔════╝╚██╗██╔╝╚══██╔══╝██╔══██╗██╔════╝╚██╗ ██╔╝
-█████╗  ██║██╔██║██████╔╝█████╗   ╚███╔╝    ██║   ███████║███████╗ ╚████╔╝
-██╔══╝  ████╔╝██║██╔══██╗██╔══╝   ██╔██╗    ██║   ██╔══██║╚════██║  ╚██╔╝
-██║     ╚██████╔╝██║  ██║███████╗██╔╝ ██╗   ██║   ██║  ██║███████║   ██║
-╚═╝      ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝╚══════╝   ╚═╝
+██╗   ██╗   ██╗███████╗
+╚██╗ ██╔╝   ██║██╔════╝
+ ╚████╔╝    ██║███████╗
+  ╚██╔╝██   ██║╚════██║
+   ██║ ╚█████╔╝███████║
+   ╚═╝  ╚════╝ ╚══════╝
 ```
 
 # yjs-bulk-apikey
 
-**Bulk API keys for [yjs.im](https://yjs.im) (the Jasper panel, `api.yjs.im`) — one account per key, 14 free models, a daily check-in that tops each account up, live-verified, any number you want.**
+**Bulk-create yjs.im accounts with auto-generated API keys — OpenAI-compatible inference + 9Router connector.**
 
 [![Node](https://img.shields.io/badge/Node-%E2%89%A518-3DA639?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-blue?style=for-the-badge)](#)
 [![License](https://img.shields.io/badge/license-MIT-6ea8fe?style=for-the-badge)](LICENSE)
-[![Models](https://img.shields.io/badge/models-14%20free-412991?style=for-the-badge)](models.json)
-[![X](https://img.shields.io/badge/X-%40bigbullapp-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/bigbullapp)
+[![Models](https://img.shields.io/badge/models-14%20free-412991?style=for-the-badge)](src/models.json)
+[![9Router](https://img.shields.io/badge/9Router-connector-8B5CF6.svg?style=for-the-badge)](#-connect-to-9router)
 
-[🛠 Quick start](#-quick-start) · [✅ Verified](#-verified-working--every-key-is-tested) · [🧭 How it works](#-how-it-works) · [🤖 Models & free tier](#-models--free-tier) · [⚙️ Options](#️-cli-options) · [🛰️ Proxies](#️-behind-a-proxy) · [🐞 Issues](#-issues)
+[🛠 Quick start](#-quick-start) · [✅ Verified](#-verified-working--every-key-is-tested) · [🧭 How it works](#-how-it-works) · [🤖 Models & free tier](#-models--free-tier) · [🔌 9Router](#-connect-to-9router) · [⚙️ Options](#️-cli-options) · [🛰️ Proxies](#️-behind-a-proxy) · [🐞 Issues](#-issues)
 
 </div>
 
@@ -59,13 +59,17 @@ cd yjs-bulk-apikey
 printf 'socks5://127.0.0.1:1080\n' > proxies.txt
 
 # 2) go — one run mints one key per fresh account
-node launcher.js                 # interactive menu: mint / settings
+node src/launcher.js                 # interactive menu: mint / settings
 # or drive it directly:
-node cli.js mint --count 30 --conc 2
+node src/cli.js mint --count 30 --conc 2
 ```
 
-`node cli.js help` lists the tasks; every task takes its own flags — ask it directly
-(`node mint.js --help`). Keys land in `keys.txt`, one per line; per-account detail (e-mail,
+Everything the tools write lands **next to the code**: `src/keys.txt`, `src/accounts.json`,
+`src/out/`. The pool is read from `src/proxies.txt`.
+
+`node src/cli.js help` lists the tasks;
+ every task takes its own flags — ask it directly
+(`node src/mint.js --help`). Keys land in `keys.txt`, one per line; per-account detail (e-mail,
 steps, verify result) lands in `accounts.json`. Settings from the launcher persist in
 `launcher.config.json`.
 
@@ -124,11 +128,42 @@ curl https://api.yjs.im/v1/chat/completions \
   -d '{"model":"deepseek-v4-flash-0731","messages":[{"role":"user","content":"hi"}]}'
 ```
 
+## 🔌 Connect to 9Router
+
+The keys this tool mints are ordinary OpenAI-compatible credentials, so a local
+9Router instance can serve them like any other provider: one `openai-compatible`
+node for yjs.im, one connection per key.
+
+```bash
+node src/connect-9router.js \
+  --base http://localhost:20128 --password 123456 \
+  --api-key <key>            # or env NINEROUTER_API_KEY
+```
+
+The launcher menu and the CLI dispatcher drive the same connector:
+
+```bash
+node src/launcher.js --connect-9router    # asks for base URL, password and key (the key is not echoed)
+node src/cli.js connect --api-key <key>   # the same task, non-interactive
+node src/connect-9router.js --help        # every flag and default
+```
+
+Defaults: base `http://localhost:20128`, password `123456`, model prefix
+`yjs`, node `yjs`, upstream `https://api.yjs.im/v1`, default model
+`deepseek-v4-flash-0731`. Register another minted key with `--name "<label 2>"` — the node stays and
+every key becomes another connection 9Router can load-balance across. Then pick a model inside
+9Router:
+
+```
+yjs/deepseek-v4-flash-0731
+yjs/glm-5.3
+```
+
 ## ⚙️ CLI options
 
 | task | flags |
 |---|---|
-| `mint` | `--count N` (30) · `--conc N` (2) — plus the engine's own flags (`node mint.js --help`) |
+| `mint` | `--count N` (30) · `--conc N` (2) — plus the engine's own flags (`node src/mint.js --help`) |
 | `launcher.js` | interactive: mint / settings (count, concurrency) — persisted in `launcher.config.json` |
 
 ## 🛰️ Behind a proxy
@@ -151,8 +186,3 @@ MIT — see [LICENSE](LICENSE). Use it on accounts you are allowed to create.
 
 ---
 
-<div align="center">
-
-**Built by F0REXTASY** · [github.com/F0Rextasy](https://github.com/F0Rextasy) · [x.com/bigbullapp](https://x.com/bigbullapp)
-
-</div>

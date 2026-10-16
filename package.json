@@ -5,16 +5,17 @@
   "license": "MIT",
   "type": "commonjs",
   "bin": {
-    "yjs-bulk-apikey": "cli.js",
-    "yjs-bulk-apikey-launcher": "launcher.js"
+    "yjs-bulk-apikey": "src/cli.js",
+    "yjs-bulk-apikey-9router": "src/connect-9router.js",
+    "yjs-bulk-apikey-launcher": "src/launcher.js"
   },
-  "main": "cli.js",
+  "main": "src/cli.js",
   "engines": {
     "node": ">=18"
   },
   "scripts": {
-    "start": "node launcher.js",
-    "mint": "node cli.js"
+    "start": "node src/launcher.js",
+    "mint": "node src/cli.js"
   },
   "keywords": [
     "api-key",
@@ -23,24 +24,28 @@
     "launcher",
     "yjs",
     "bulk",
-    "apikey"
+    "apikey",
+    "9router",
+    "openai-compatible"
   ],
   "files": [
-    "cdp.js",
-    "chrome-flags.js",
-    "cli.js",
-    "imap.js",
-    "launcher.js",
-    "lib.js",
-    "mailbox-imap.js",
-    "mint-newapi-pinned.js",
-    "mint.js",
-    "newapi.js",
-    "probe-group.js",
-    "probe-verify.js",
-    "provider-cli.js",
-    "proxy.js",
-    "xwave-lib.js",
+    "src/cdp.js",
+    "src/chrome-flags.js",
+    "src/cli.js",
+    "src/connect-9router.js",
+    "src/imap.js",
+    "src/launcher.js",
+    "src/lib.js",
+    "src/mailbox-imap.js",
+    "src/mint-newapi-pinned.js",
+    "src/mint.js",
+    "src/newapi.js",
+    "src/probe-group.js",
+    "src/probe-verify.js",
+    "src/provider-cli.js",
+    "src/proxy.js",
+    "src/xwave-lib.js",
+    "src/models.json",
     "README.md",
     "LICENSE"
   ]
