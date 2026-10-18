@@ -26,6 +26,7 @@ function help() {
   for (const [name, t] of Object.entries(TASKS)) console.log('  ' + name.padEnd(9) + ' ' + t.note);
   console.log('\noptions: every task takes its own flags — ask it directly:');
   console.log('  node src/<task-file> --help');
+  console.log('  --preset turbo|balanced|safe  run shape for the task (5/4/2 workers, 3/6/8 s apart)');
   console.log('\nproxy pool:');
   console.log('  one exit per line in proxies.txt — scheme://host:port[#comment], user:pass@ supported');
   console.log('\n9Router (optional, local inference router):');
@@ -34,7 +35,11 @@ function help() {
   console.log('\nno options? run the interactive launcher:  node src/launcher.js');
 }
 
-const argv = process.argv.slice(2);
+const args = process.argv.slice(2);
+// `--preset` may sit before the task name (node src/cli.js --preset=turbo mint):
+// hold it here and hand it to the task, which is where the run-shape logic lives.
+const presetFlag = args.find((a) => a.startsWith('--preset='));
+const argv = args.filter((a) => a !== presetFlag);
 const task = argv[0] === '--connect-9router' ? 'connect' : argv[0];
 if (!task || task === 'help' || task === '--help' || task === '-h') {
   help();
@@ -46,7 +51,7 @@ if (!entry) {
   help();
   process.exit(1);
 }
-const child = spawnSync(process.execPath, [path.join(__dirname, entry.file), ...argv.slice(1)], {
+const child = spawnSync(process.execPath, [path.join(__dirname, entry.file), ...argv.slice(1), ...(presetFlag ? [presetFlag] : [])], {
   windowsHide: true,
   stdio: 'inherit',
   env: process.env,

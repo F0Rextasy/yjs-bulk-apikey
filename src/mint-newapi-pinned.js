@@ -38,6 +38,7 @@ const path = require('path');
 const { loadExits, ExitPool, providerDir, readJson, writeJson, appendLine, sleep, randHex, randPass, nowIso, extractCode, req, isExitError } = require('./lib');
 const { Panel, gates, UA } = require('./newapi');
 const { createAgent } = require(path.join(__dirname, 'proxy'));
+const { presetArgv, resolvePreset } = require('./preset');
 
 let emailnator = null;
 try {
@@ -80,6 +81,21 @@ const BUDGET_MS = parseInt(one('budget', '2700'), 10) * 1000;
 const AFF = one('aff', '');
 const OFFER_MODEL = one('model', '');
 const MAIL_TRIES = parseInt(one('mail-tries', '3'), 10);
+// Run shape (operator standard v3): `--preset` sets how many accounts are minted
+// at a time and the pause between account starts inside a worker. An explicit
+// --conc/--gap wins, and with no --preset the run stays the historical serial one.
+const PRESET = presetArgv(argv) || one('preset', null);
+const SHAPE = resolvePreset({
+  preset: PRESET,
+  conc: one('conc', null) != null ? parseInt(one('conc'), 10) : null,
+  gap: one('gap', null) != null ? parseInt(one('gap'), 10) : null,
+  defaultConc: 1,
+  defaultGap: 0,
+});
+const CONC = Math.max(1, SHAPE.conc || 1);
+const GAP_MS = Math.max(0, Math.round((SHAPE.gap == null ? 0 : SHAPE.gap) * 1000));
+/** `user:pass@host` in an exit line is never printed (spec form: `user:***@host`). */
+const maskExit = (line) => String(line || 'direct').replace(/:[^:@/]+@/, ':***@');
 // Controls (Main, 2026-10-15): cycle 1 submits on the first poll; cycles
 // >= `--delay-from-cycle` deliberately wait `--delay-ms` before the register
 // POST, so "does a correct code survive 30 s of delay?" is measured, not guessed.
@@ -188,6 +204,9 @@ class PinHunter {
     this.pIdx = 0;
     this.cIdx = 0;
     this.recent = [];
+    // line -> owning account. A proven pin is held for the account riding it, so
+    // two workers of the same run never mint through one exit at the same time.
+    this.busy = new Map();
     this.scanMax = scanMax;
     this.parallel = parallel;
     this.probePath = probePath;
@@ -212,6 +231,13 @@ class PinHunter {
   remember(p) {
     if (p) this.recent.unshift({ p, at: Date.now() });
   }
+  claim(p, owner) {
+    if (p) this.busy.set(p.line, owner);
+    return p;
+  }
+  releaseOwner(owner) {
+    for (const [line, o] of this.busy) if (o === owner) this.busy.delete(line);
+  }
   async probe(p) {
     try {
       const res = await req(p, BASE + this.probePath, { timeoutMs: 14000, connectTimeoutMs: 8000, headers: { accept: 'application/json', 'user-agent': UA } });
@@ -224,7 +250,7 @@ class PinHunter {
   }
   /** { pin, tested, reuse } — `pin: null` when the scan budget ran out. */
   async acquire() {
-    this.recent = this.recent.filter((r) => Date.now() - r.at < 240000 && !this.dead.has(r.p.line));
+    this.recent = this.recent.filter((r) => Date.now() - r.at < 240000 && !this.dead.has(r.p.line) && !this.busy.has(r.p.line));
     for (const r of this.recent.slice(0, 4)) {
       if (await this.probe(r.p)) {
         this.remember(r.p);
@@ -715,13 +741,27 @@ async function probeRegister(panel, email) {
     return;
   }
 
-  for (let i = 0; i < total; i++) {
-    const index = accounts.length + i + 1;
+  // ---- run shape (operator standard v3) --------------------------------------
+  // CONC accounts are minted at a time, each pin held by the account riding it
+  // (hunter.claim) and each account keeping its own mailbox and cycles; with no
+  // --preset CONC is 1, which is exactly the historical serial run.
+  const baseLen = accounts.length;
+  let issued = 0;
+  let abort = false;
+  const mintAccount = async (i, owner) => {
+    const index = baseLen + i + 1;
     const username = `${TAG}${randHex(6)}`.slice(0, 18);
     const password = randPass();
     const rec = { provider: NAME, base: BASE, index, username, password, created: nowIso(), steps: {}, cycles: [] };
     let box = null;
     let done = false;
+    let started = false;
+    /** The spec's live start line: printed once, with the exit this account got. */
+    const startLine = (exitLine) => {
+      if (started) return;
+      started = true;
+      console.log(`… #${index} başladı (${exitLine ? maskExit(exitLine) : 'no exit'})`);
+    };
     log(`#${index} start · user=${username}`);
 
     for (let cycle = 1; cycle <= MAX_CYCLE && !done; cycle++) {
@@ -741,10 +781,13 @@ async function probeRegister(panel, email) {
           cyc.status = 'no-exit';
           rec.status = 'no-exit';
           log(`  ✖ no exit reaches ${BASE} (scanned ${tested}, remaining ${hunter.remaining}, statuses ${JSON.stringify(hunter.statusHist)})`);
+          startLine(null);
           break;
         }
         cyc.exit = pin.line;
         cyc.exitClass = pin.klass || 'unknown';
+        startLine(pin.line);
+        hunter.claim(pin, owner);
         log(`  pin ${pin.line}${pin.klass ? ` [class=${pin.klass}]` : ''}${reuse ? ' (reused)' : ` (scanned ${tested})`}`);
         panel = pinnedPanel(pin);
 
@@ -875,6 +918,7 @@ async function probeRegister(panel, email) {
           const rePin = async (why) => {
             const got2 = await hunter.acquire();
             if (!got2.pin) throw new Error(`no exit for ${why}`);
+            hunter.claim(got2.pin, owner);
             panel.supply.pin = got2.pin;
             panel.supply.dead = false;
             panel.agent = createAgent(got2.pin, { keepAlive: true, maxSockets: 1 });
@@ -944,6 +988,7 @@ async function probeRegister(panel, email) {
             const alt = await hunter.acquire();
             if (alt.pin && (alt.pin.line || `${alt.pin.host}:${alt.pin.port}`) !== mintExit) {
               verifier = pinnedPanel(alt.pin);
+              hunter.claim(alt.pin, owner);
               verifyExit = alt.pin.line || `${alt.pin.host}:${alt.pin.port}`;
               independent = true;
               log(`  verify exit ${verifyExit} (mint exit ${mintExit}, independent=${independent})`);
@@ -983,6 +1028,7 @@ async function probeRegister(panel, email) {
             rec.status = 'minted';
             if (!fs.existsSync(KEYS) || !fs.readFileSync(KEYS, 'utf8').includes(key)) appendLine(KEYS, key);
             made.push(key);
+            console.log(`✓ #${index} KEY ALINDI: ${key.slice(0, 22)}… [${made.length} ok / ${issued} deneme]`);
             log(`  ✔ MINTED (models=${models.status}, chat=${rec.verify.chat_status || 'n/a'}, quota=${rec.steps.self.quota})`);
           } else {
             rec.status = 'key-unverified';
@@ -1045,11 +1091,29 @@ async function probeRegister(panel, email) {
 
     accounts.push(rec);
     writeJson(ACCOUNTS, accounts);
-    if (PROBE) break;
-  }
+    if (PROBE) return;
+    if (rec.status !== 'minted') console.log(`✗ #${index} key yok: ${rec.status}`);
+  };
+
+  const worker = async () => {
+    for (;;) {
+      if (abort) return;
+      const i = issued++;
+      if (i >= total) return;
+      const owner = `a${i}`;
+      try {
+        await mintAccount(i, owner);
+      } finally {
+        hunter.releaseOwner(owner);
+      }
+      if (GAP_MS) await sleep(GAP_MS);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(CONC, total) }, worker));
 
   const minted = accounts.filter((a) => a.provider === NAME && a.status === 'minted').length;
   log(`done: ${NAME} — ${made.length} new key(s) this run, ${minted} minted account(s) total · pins scanned=${hunter.scanned} statuses=${JSON.stringify(hunter.statusHist)}`);
+  console.log(`${String(NAME || 'mint').toUpperCase()} ${made.length}/${total} OK`);
 })().catch((e) => {
   log(`FATAL ${e && e.stack ? e.stack.split('\n').slice(0, 3).join(' | ') : e}`);
   process.exit(1);
