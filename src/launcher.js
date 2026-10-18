@@ -121,6 +121,11 @@ async function main() {
   return main();
 }
 
+if (process.argv.includes('--help') || process.argv.includes('-h')) {
+  console.log('Interactive launcher: run `node src/launcher.js` and pick a menu item.');
+  process.exit(0);
+}
+
 if (process.argv.includes('--connect-9router')) {
   connectFlow()
     .then(() => rl.close())

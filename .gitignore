@@ -2,6 +2,7 @@ node_modules/
 
 # generated material — never commit
 keys.txt
+proxies.txt
 keys.json
 *.txt
 accounts.json
