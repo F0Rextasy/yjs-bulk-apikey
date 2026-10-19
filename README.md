@@ -29,7 +29,6 @@
 
 </div>
 
-
 ---
 
 > **One account, one key.** N accounts → N keys, one sign-up each, every key verified live

@@ -29,7 +29,6 @@
 
 </div>
 
-
 ---
 
 > **Bir hesap, bir anahtar.** N hesap → N anahtar, her biri için bir kayıt, her anahtar `keys.txt` dosyasına yazılmadan önce canlı doğrulanır.

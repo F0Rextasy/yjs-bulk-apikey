@@ -29,8 +29,6 @@
 
 </div>
 
-
-
 ---
 
 > **Un compte, une clé.** N comptes → N clés, une inscription chacun, chaque clé vérifiée en direct

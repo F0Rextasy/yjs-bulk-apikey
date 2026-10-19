@@ -29,8 +29,6 @@
 
 </div>
 
-
-
 ---
 
 > **Ein Konto, ein Schlüssel.** N Konten → N Schlüssel, eine Registrierung pro Konto, jeder Schlüssel live verifiziert, bevor er in `keys.txt` landet.

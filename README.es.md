@@ -29,8 +29,6 @@
 
 </div>
 
-
-
 ---
 
 > **Una cuenta, una clave.** N cuentas → N claves, un registro para cada una, cada clave verificada en vivo
