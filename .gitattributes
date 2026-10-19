@@ -1,0 +1,5 @@
+# Published repo: LF everywhere, so a Windows checkout and the README
+# parity gate see exactly the bytes that were committed.
+* text=auto eol=lf
+*.js text eol=lf
+*.md text eol=lf
