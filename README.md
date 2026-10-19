@@ -204,4 +204,3 @@ Open an issue with the failing step, the exit used and the tool's stdout — the
 MIT — see [LICENSE](LICENSE). Use it on accounts you are allowed to create.
 
 ---
-
