@@ -23,6 +23,12 @@
 
 </div>
 
+<div align="center">
+
+**English** · [Türkçe](README.tr.md) · [中文](README.cn.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Русский](README.ru.md) · [Português](README.pt.md)
+
+</div>
+
 ---
 
 > **One account, one key.** N accounts → N keys, one sign-up each, every key verified live
@@ -106,13 +112,9 @@ Per account, end to end over one exit:
 
 `models.json` is the live `GET /v1/models` answer of a minted key on the `Free` group — **14 ids**:
 
-| id | note |
+|Model|✓|
 |---|---|
-| `deepseek-v4-flash-0731` | the verifier's default chat model |
-| `deepseek-v4-flash`, `deepseek-v4.1-flash`, `deepseek-v4.1-flash-request` | DeepSeek flash line |
-| `glm-5.2`, `glm-5.3`, `glm-5.3-flash` | GLM line |
-| `kimi-k3`, `mimo-v2.6-flash`, `sensenova-6.8-flash-lite` | more flash-tier ids |
-| `qwen3.8-flash-next`, `step-5-preview`, `swe-1-6`, `hy3` | plus the long tail |
+|`deepseek-v4-flash-0731`|✓|
 
 **What a fresh account gets:** a free quota measured at **5,595–7,216 units** after the first
 **daily check-in** (which tops the account up — check in again tomorrow and it refills). The panel's
