@@ -29,6 +29,7 @@
 
 </div>
 
+
 ---
 
 > **One account, one key.** N accounts → N keys, one sign-up each, every key verified live
@@ -115,6 +116,23 @@ Per account, end to end over one exit:
 |Model|✓|
 |---|---|
 |`deepseek-v4-flash-0731`|✓|
+|`DeepSeek-V4-Flash`|✓|
+|`DeepSeek-V4-Flash-0731`|✓|
+|`claude-opus-5-5-web`|✓|
+|`deepseek-v4-flash`|✓|
+|`deepseek-v4.1-flash`|✓|
+|`deepseek-v4.1-flash-request`|✓|
+|`glm-5.2`|✓|
+|`glm-5.3`|✓|
+|`glm-5.3-flash`|✓|
+|`hy3`|✓|
+|`kimi-k3`|✓|
+|`mimo-v2.6-flash`|✓|
+|`qwen3.8-flash-next`|✓|
+|`sensenova-6.8-flash-lite`|✓|
+|`step-5-preview`|✓|
+
+2026-10-19 live re-check: 16/16 probed ids answered a chat `200` (the panel serves the case-variant duplicates above as separate ids).
 
 **What a fresh account gets:** a free quota measured at **5,595–7,216 units** after the first
 **daily check-in** (which tops the account up — check in again tomorrow and it refills). The panel's
