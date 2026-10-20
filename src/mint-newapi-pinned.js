@@ -186,7 +186,8 @@ class PinnedSupply {
 function pinnedPanel(pin) {
   const supply = new PinnedSupply(pin);
   const panel = new Panel(BASE, supply, { label: NAME, log });
-  panel.agent = createAgent(pin, { keepAlive: true, maxSockets: 1 });
+  // No pin = direct mode (`null` sentinel): no per-exit agent, req() dials out.
+  panel.agent = pin ? createAgent(pin, { keepAlive: true, maxSockets: 1 }) : null;
   panel.supply = supply;
   return panel;
 }
@@ -216,11 +217,13 @@ class PinHunter {
   take(n) {
     const out = [];
     while (out.length < n) {
-      let p = null;
+      // `null` is the direct sentinel (no pool): never "retired", it is the
+      // one slot `req()` dials straight out on.
+      let p;
       if (this.pIdx < this.priority.length) p = this.priority[this.pIdx++];
       else if (this.cIdx < this.cold.length) p = this.cold[this.cIdx++];
       else break;
-      if (this.dead.has(p.line)) continue;
+      if (p && this.dead.has(p.line)) continue;
       out.push(p);
     }
     return out;
@@ -248,7 +251,8 @@ class PinHunter {
       return false;
     }
   }
-  /** { pin, tested, reuse } — `pin: null` when the scan budget ran out. */
+  /** { pin, tested, reuse } — `pin: undefined` when the scan budget ran out;
+   *  `pin: null` is the direct sentinel (no pool) and is a valid pin. */
   async acquire() {
     this.recent = this.recent.filter((r) => Date.now() - r.at < 240000 && !this.dead.has(r.p.line) && !this.busy.has(r.p.line));
     for (const r of this.recent.slice(0, 4)) {
@@ -275,7 +279,7 @@ class PinHunter {
         return { pin: win.p, tested: testedThis, reuse: false };
       }
     }
-    return { pin: null, tested: testedThis, reuse: false };
+    return { pin: undefined, tested: testedThis, reuse: false };
   }
   get remaining() {
     return this.priority.length - this.pIdx + this.cold.length - this.cIdx;
@@ -284,10 +288,9 @@ class PinHunter {
 
 // --------------------------------------------------------------------------- mail
 
-/** Proxy-pool bound Emailnator calls: a missing pool is an error, never direct. */
+/** Mailbox calls ride the mint's exit pool; no pool / no exit = direct mode. */
 function mailExit(pool) {
-  if (!pool) throw new Error('mail: refusing direct request (no proxy pool)');
-  return pool.next();
+  return pool ? pool.next() : null;
 }
 
 async function mailList(plain, pool, { tries = MAIL_TRIES } = {}) {
@@ -332,7 +335,7 @@ async function mailNew(pool, { tries = 4 } = {}) {
     try {
       const box = await emailnator.newAddress(p);
       pool.alive(p);
-      return { ...box, exit: p.line, provider: 'emailnator' };
+      return { ...box, exit: p ? p.line : 'direct', provider: 'emailnator' };
     } catch (e) {
       last = e;
       pool.kill(p);
@@ -618,10 +621,18 @@ async function probeRegister(panel, email) {
   }
   priority.unshift(...poolLines);
   const cold = loadExits(undefined, { shuffle: true });
-  const hunter = new PinHunter(priority, cold);
+  // `loadExits`/`loadSoft` hand back the `[null]` direct sentinel when their
+  // lists have no usable exits. Keep the sentinel only when NO list anywhere
+  // holds a real exit: a supplied pool (or a machine pool with exits) must
+  // never degrade into a silent direct run — that is the fail-closed half of
+  // the egress rule.
+  const priorities = priority.filter(Boolean);
+  const colds = cold.filter(Boolean);
+  const realCount = priorities.length + colds.length;
+  const hunter = realCount ? new PinHunter(priorities, colds) : new PinHunter([null], []);
   const poolMail = await fetchPool({ target: 'www.emailnator.com', limit: 20 });
   const mailExits = [];
-  for (const f of [...(poolMail.lines || []), ...loadExits(MAIL_POOLS.length ? MAIL_POOLS : MAIL_FILES, { shuffle: true }).map((p) => ({ line: p.line, klass: p.klass }))]) {
+  for (const f of [...(poolMail.lines || []), ...loadExits(MAIL_POOLS.length ? MAIL_POOLS : MAIL_FILES, { shuffle: true }).filter((p) => p).map((p) => ({ line: p.line, klass: p.klass }))]) {
     try {
       const p = require('./proxy.js').parseProxy(f.line);
       if (p) {
@@ -631,11 +642,14 @@ async function probeRegister(panel, email) {
       }
     } catch (e) {}
   }
-  const mailPool = new ExitPool(mailExits, { label: `${NAME}-mail` });
+  // Mail rides its own lists when they have exits; if only the panel pool was
+  // supplied, it works off the same exits rather than dialing direct while a
+  // pool exists (fail-closed). Empty everywhere = direct mode.
+  const mailPool = new ExitPool(mailExits.length ? mailExits : realCount ? [...priorities, ...colds] : [], { label: `${NAME}-mail` });
 
-  // IMAP path: the box is a real mailbox (readable bodies). The connection still
-  // rides an exit — mailbox traffic is not provider traffic, but the same rule
-  // is "never our own address", so it exits too.
+  // IMAP path: the box is a real mailbox (readable bodies). The connection rides
+  // an exit when a pool is provided; with none, `mailPool.next()` is the direct
+  // sentinel and the TLS connection dials out straight.
   let imapBox = null;
   if (MAIL_MODE === 'imap') {
     if (!IMAP_USER || !IMAP_PASS) throw new Error('--mail imap needs IMAP_USER/IMAP_PASS (or --imap-user/--imap-pass)');
@@ -651,23 +665,24 @@ async function probeRegister(panel, email) {
   }
 
   log(
-    `# ${NAME} pinned mint · base=${BASE} · priority=${priority.length} (pool=${poolLines.length}${EXIT_CLASS ? ` class=${EXIT_CLASS}` : ''}, poolNote=${String(pool.note || pool.error || '').slice(0, 80)}) cold=${cold.length} mail=${mailPool.exits.length} · count=${COUNT}${PROBE ? ' · PROBE' : ''}${STRICT_SENDER ? ` · sender=${SENDER} (strict)` : ''}${DELAY_FROM < 99 ? ` · delay-control from cycle ${DELAY_FROM} (+${DELAY_MS}ms)` : ''}`
+    `# ${NAME} pinned mint · base=${BASE} · priority=${priorities.length}${priorities.length ? '' : ' (DIRECT)'} (pool=${poolLines.length}${EXIT_CLASS ? ` class=${EXIT_CLASS}` : ''}, poolNote=${String(pool.note || pool.error || '').slice(0, 80)}) cold=${colds.length} mail=${mailPool.exits.length} · count=${COUNT}${PROBE ? ' · PROBE' : ''}${STRICT_SENDER ? ` · sender=${SENDER} (strict)` : ''}${DELAY_FROM < 99 ? ` · delay-control from cycle ${DELAY_FROM} (+${DELAY_MS}ms)` : ''}`
   );
 
   let st = null;
   for (let i = 0; i < 6 && !st; i++) {
     const { pin } = await hunter.acquire();
-    if (!pin) {
+    if (pin === undefined) {
       log(`  gates: no exit reaches ${BASE} (scanned ${hunter.scanned}, statuses ${JSON.stringify(hunter.statusHist)})`);
       await sleep(20000);
       continue;
     }
+    const pinLine = pin ? pin.line : 'direct';
     const panel = pinnedPanel(pin);
     try {
       const r = await panel.status();
-      st = { pin: pin.line, r };
+      st = { pin: pinLine, r };
     } catch (e) {
-      log(`  gates probe: ${pin.line} died (${String(e.message).slice(0, 80)}) — re-pinning`);
+      log(`  gates probe: ${pinLine} died (${String(e.message).slice(0, 80)}) — re-pinning`);
       hunter.retire(pin);
     }
   }
@@ -702,7 +717,7 @@ async function probeRegister(panel, email) {
             headers: { accept: '*/*', origin: 'https://www.emailnator.com', referer: 'https://www.emailnator.com/', 'user-agent': UA, ...(body ? { 'content-type': 'application/json' } : {}) },
           });
           mailPool.alive(p);
-          return { status: res.status, text: res.text, exit: p.line };
+          return { status: res.status, text: res.text, exit: p ? p.line : 'direct' };
         } catch (e) {
           mailPool.kill(p);
         }
@@ -777,18 +792,19 @@ async function probeRegister(panel, email) {
         const { pin, tested, reuse } = await hunter.acquire();
         cyc.scan = tested;
         cyc.reuse = Boolean(reuse);
-        if (!pin) {
+        if (pin === undefined) {
           cyc.status = 'no-exit';
           rec.status = 'no-exit';
           log(`  ✖ no exit reaches ${BASE} (scanned ${tested}, remaining ${hunter.remaining}, statuses ${JSON.stringify(hunter.statusHist)})`);
           startLine(null);
           break;
         }
-        cyc.exit = pin.line;
-        cyc.exitClass = pin.klass || 'unknown';
-        startLine(pin.line);
+        const pinLine = pin ? pin.line : 'direct';
+        cyc.exit = pinLine;
+        cyc.exitClass = (pin && pin.klass) || 'unknown';
+        startLine(pinLine);
         hunter.claim(pin, owner);
-        log(`  pin ${pin.line}${pin.klass ? ` [class=${pin.klass}]` : ''}${reuse ? ' (reused)' : ` (scanned ${tested})`}`);
+        log(`  pin ${pinLine}${pin && pin.klass ? ` [class=${pin.klass}]` : ''}${reuse ? ' (reused)' : ` (scanned ${tested})`}`);
         panel = pinnedPanel(pin);
 
         if (!box) {
@@ -916,13 +932,18 @@ async function probeRegister(panel, email) {
           rec.status = 'registered';
           // ---- mint phase (cookie session; a dead pin is replaced, the cookie rides along)
           const rePin = async (why) => {
+            if (panel.supply.pin === null) {
+              // Direct mode: there is no other exit to pin — retry the same route.
+              panel.supply.dead = false;
+              return null;
+            }
             const got2 = await hunter.acquire();
-            if (!got2.pin) throw new Error(`no exit for ${why}`);
+            if (got2.pin === undefined) throw new Error(`no exit for ${why}`);
             hunter.claim(got2.pin, owner);
             panel.supply.pin = got2.pin;
             panel.supply.dead = false;
-            panel.agent = createAgent(got2.pin, { keepAlive: true, maxSockets: 1 });
-            log(`  re-pin for ${why}: ${got2.pin.line}`);
+            panel.agent = got2.pin ? createAgent(got2.pin, { keepAlive: true, maxSockets: 1 }) : null;
+            log(`  re-pin for ${why}: ${got2.pin ? got2.pin.line : 'direct'}`);
             return got2.pin;
           };
           const guard = async (fn, label) => {
@@ -980,7 +1001,7 @@ async function probeRegister(panel, email) {
           // pass can be session state rather than key validity (same rule, after
           // the completions.me batch). Take a *different* proven exit when one is
           // available and record both sides plus the independence flag.
-          const mintExit = (panel.supply.pin && panel.supply.pin.line) || panel.supply.pin.host;
+          const mintExit = panel.supply.pin ? panel.supply.pin.line || panel.supply.pin.host : 'direct';
           let verifier = panel;
           let verifyExit = mintExit;
           let independent = false;

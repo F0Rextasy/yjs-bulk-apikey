@@ -3,10 +3,11 @@
 /**
  * Shared plumbing for the bulk-mint tools.
  *
- * Hard rule baked in: **every request that leaves this machine goes through a
- * proxy**. `req()` throws when handed a null proxy instead of silently dialing
- * direct, so a missing exit surfaces as an error, never as our own IP reaching
- * a provider.
+ * Egress rule: **as long as a pool is provided, every request goes through one
+ * of its exits** — a dead line fails that attempt and is never swapped for a
+ * direct connection. With no pool (missing/empty list) the tool runs in direct
+ * mode: `loadExits()` hands back the `[null]` direct sentinel and `req(null, …)`
+ * dials the provider straight from this machine.
  *
  * Shared pieces: `proxy.js` (tunnels + agent), a local inbox broker
  * (Mailtrap / inboxes.com on 127.0.0.1:9700|9701).
@@ -79,19 +80,27 @@ function loadExits(files = DEFAULT_POOLS, { shuffle = true } = {}) {
       for (let i = 0; i < weight; i++) out.push(p);
     }
   }
+  if (!out.length) {
+    // No usable exits = DIRECT mode: a pool is recommended at scale (per-IP
+    // limits, bans) but the tool works without one. `null` is the direct
+    // sentinel every consumer of this module tolerates.
+    console.log(`no usable exits in ${files.map((f) => path.basename(String(f))).join(' / ')} — running WITHOUT a proxy (direct).`);
+    return [null];
+  }
   if (shuffle) out.sort(() => Math.random() - 0.5);
   return out;
 }
 
 /**
- * Fail-closed HTTP: no proxy → throw (never fall back to our own address).
+ * One HTTP(S) request. With an exit it goes through that proxy — fail-closed:
+ * a dead line rejects, never a silent fall-back to direct. With the direct
+ * sentinel (`null`, i.e. no pool) it is a plain https/http request.
  *
  * `agent` (optional) is a caller-owned agent — the pinned flows pass a
  * keep-alive agent so every request of one account reuses a *single* tunnel
  * (one upstream exit), which is what an exit-bound verification code needs.
  */
 function req(proxy, url, { method = 'GET', headers = {}, body = null, timeoutMs = 30000, connectTimeoutMs = 8000, agent = null } = {}) {
-  if (!proxy) return Promise.reject(new Error('refusing direct request (no exit): ' + url));
   return new Promise((resolve, reject) => {
     const u = new URL(url);
     const lib = u.protocol === 'https:' ? https : http;
@@ -100,15 +109,19 @@ function req(proxy, url, { method = 'GET', headers = {}, body = null, timeoutMs 
     const h = { ...headers };
     if (payload && !Object.keys(h).some((k) => k.toLowerCase() === 'content-type')) h['Content-Type'] = 'application/json';
     if (payload && !Object.keys(h).some((k) => k.toLowerCase() === 'content-length')) h['Content-Length'] = payload.length;
-    proxy.connectTimeoutMs = connectTimeoutMs;
-    proxy.timeoutMs = timeoutMs;
+    if (proxy) {
+      proxy.connectTimeoutMs = connectTimeoutMs;
+      proxy.timeoutMs = timeoutMs;
+    }
     const r = lib.request(
       {
         method,
         host: u.hostname,
         port: u.port || (u.protocol === 'https:' ? 443 : 80),
         path: u.pathname + u.search,
-        agent: agent || createAgent(proxy),
+        // Direct mode (`null`): no agent at all, so Node dials host:port
+        // itself — no tunnel, no CONNECT.
+        agent: proxy ? agent || createAgent(proxy) : undefined,
         headers: h,
       },
       (res) => {
@@ -138,7 +151,7 @@ async function jreq(proxy, url, opts) {
 }
 
 const NETWORK_ERROR =
-  /CONNECT|ECONN|EPIPE|socket|SOCKS|TLS|timeout|aborted|ECONNRESET|ETIMEDOUT|EAI_AGAIN|premature|destroyed|proxy|handshake|auth methods|refusing direct|certificate|self.signed|UNABLE_TO_VERIFY|doesn't match/i;
+  /CONNECT|ECONN|EPIPE|socket|SOCKS|TLS|timeout|aborted|ECONNRESET|ETIMEDOUT|EAI_AGAIN|premature|destroyed|proxy|handshake|auth methods|certificate|self.signed|UNABLE_TO_VERIFY|doesn't match/i;
 
 /** True when the failure is about the exit, not the provider's answer. */
 function isExitError(err) {
@@ -150,6 +163,11 @@ function isExitError(err) {
  * errors, and retires exits that failed twice. Cookie/header state is the
  * caller’s job — same as the other mints, where each step re-picks an
  * exit because free exits live 1–3 minutes.
+ *
+ * `null` is the direct sentinel (`[null]` = no pool): every consumer tolerates
+ * it and `req(null, …)` dials straight out. Fail-closed applies only while real
+ * exits are supplied — a dead line fails its attempt, it is never replaced by a
+ * direct connection.
  */
 class ExitPool {
   constructor(exits, { label: tag = '' } = {}) {
@@ -161,7 +179,7 @@ class ExitPool {
     this.hits = 0;
   }
   next() {
-    if (!this.exits.length) throw new Error('proxy pool empty');
+    if (!this.exits.length) return null;
     // A proven exit is worth far more than a random candidate: free exits that
     // answer once usually keep answering for a few minutes, and every account is
     // ~10 sequential calls. Reuse it until it fails.
@@ -169,7 +187,7 @@ class ExitPool {
     for (let i = 0; i < this.exits.length; i++) {
       const p = this.exits[this.index++ % this.exits.length];
       this.index %= this.exits.length;
-      const d = this.dead.get(p.line) || 0;
+      const d = p ? this.dead.get(p.line) || 0 : 0; // the direct sentinel never retires
       if (d < 2) return p;
     }
     // everything retired: reset so long runs keep moving

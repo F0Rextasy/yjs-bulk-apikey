@@ -99,7 +99,7 @@ async function connectFlow() {
 async function main() {
   process.stdout.write('\x1b[2J\x1b[H');
   banner();
-  console.log('  proxy exits: ' + (count(POOL) || 'none — put exits in proxies.txt') + '     keys on disk: ' + count(KEYS) + '\n');
+  console.log('  proxy exits: ' + (count(POOL) || 'none — running WITHOUT a proxy (direct)') + '     keys on disk: ' + count(KEYS) + '\n');
   console.log('  1) mint      create fresh accounts and mint one key each');
   console.log('  2) Settings');
   console.log('  3) 9Router   register a key with a local 9Router instance (asks for base/password/key)');

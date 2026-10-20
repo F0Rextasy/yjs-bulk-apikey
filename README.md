@@ -62,6 +62,7 @@ git clone https://github.com/F0Rextasy/yjs-bulk-apikey.git
 cd yjs-bulk-apikey
 
 # 1) your proxy list — one exit per line (http://, socks5://, socks4://, or bare host:port)
+#    optional: without it the tool connects directly
 printf 'socks5://127.0.0.1:1080\n' > proxies.txt
 
 # 2) go — one run mints one key per fresh account
@@ -71,7 +72,7 @@ node src/cli.js mint --count 30 --conc 2
 ```
 
 Everything the tools write lands **next to the code**: `src/keys.txt`, `src/accounts.json`,
-`src/out/`. The pool is read from `src/proxies.txt`.
+`src/out/`. The pool (`src/proxies.txt`) is optional — with none the tool connects directly.
 
 `node src/cli.js help` lists the tasks;
  every task takes its own flags — ask it directly
@@ -94,7 +95,7 @@ the one that minted it.
 
 ## 🧭 How it works
 
-Per account, end to end over one exit:
+Per account, end to end over one exit (direct when no pool is configured):
 
 1. a fresh exit from `proxies.txt`, proven against the panel right then (a dead exit costs one
    attempt, not the batch);
@@ -187,12 +188,19 @@ yjs/glm-5.3
 
 ## 🛰️ Behind a proxy
 
-* `proxies.txt` — one exit per line; `scheme://user:pass@host:port`, `scheme://host:port` or bare
+**Optional — recommended at scale (per-IP limits, bans).** The tool works without a proxy too.
+
+- **With a pool:** pass `--pool <file>` (the launcher uses `proxies.txt`) and every request goes through
+  a proven exit from that list — one account stays pinned to one exit for its whole life, and a dead line
+  fails that attempt so the tool moves to the next one (fail-closed while a pool is provided; exits are
+  re-probed at use).
+- **Without a pool:** the CLI prints `running WITHOUT a proxy (direct)` and connects directly — panel and
+  mailbox traffic alike. Nothing about sign-up, check-in, key minting or verification changes; only where
+  the packets leave from.
+- `proxies.txt` — one exit per line; `scheme://user:pass@host:port`, `scheme://host:port` or bare
   `host:port` (defaults to `http://`). Comments after `#` and blank lines are ignored.
-* Exits are proven against the panel **at the moment of use**; dead ones are retired and the pool
+- Exits are proven against the panel **at the moment of use**; dead ones are retired and the pool
   is only re-read when the usable set runs dry.
-* Nothing leaves your own interface: every panel request (and the mailbox traffic) goes through
-  the pool.
 
 ## 🐞 Issues
 

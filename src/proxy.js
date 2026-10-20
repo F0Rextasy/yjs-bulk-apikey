@@ -14,8 +14,9 @@
  *     whose `createConnection()` returns a TLS socket layered on the tunnel.
  *
  * Everything here is written so a failed proxy fails the *account*, never
- * falls back to a direct connection: the whole point is that no request ever
- * leaves the machine from its own address.
+ * falls back to a direct connection: while a pool is in use no request leaves
+ * the machine from its own address. With no pool the tool runs direct and
+ * these tunnels/agents are simply not used.
  */
 
 const net = require('net');

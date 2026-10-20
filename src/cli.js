@@ -27,8 +27,10 @@ function help() {
   console.log('\noptions: every task takes its own flags — ask it directly:');
   console.log('  node src/<task-file> --help');
   console.log('  --preset turbo|balanced|safe  run shape for the task (5/4/2 workers, 3/6/8 s apart)');
-  console.log('\nproxy pool:');
-  console.log('  one exit per line in proxies.txt — scheme://host:port[#comment], user:pass@ supported');
+  console.log('\nproxy pool [optional]:');
+  console.log('  --pool <file>   one exit per line — scheme://host:port[#comment], user:pass@ supported  [optional]');
+  console.log('  Requests go through your proxy list when one is provided (--pool). Without a pool the');
+  console.log('  tool connects directly.');
   console.log('\n9Router (optional, local inference router):');
   console.log('  node src/cli.js connect --api-key <key>        register node + key (node src/connect-9router.js --help)');
   console.log('  node src/cli.js --connect-9router --api-key <key>   the same task');

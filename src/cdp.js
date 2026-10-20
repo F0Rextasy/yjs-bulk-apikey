@@ -294,6 +294,9 @@ class CDP extends EventEmitter {
    * world from a different address:
    *   await cdp.createBrowserContext({ proxyServer: 'http://127.0.0.1:8899' })
    *
+   * Direct mode (no pool): omit `proxyServer` entirely — the parameter is only
+   * set when one is given, so the context dials straight out.
+   *
    * Note: Chrome ignores `user:pass@` inside that URL — authenticated proxies
    * need `attachProxyAuth()` from ./proxy (Fetch.handleAuthRequests).
    */
