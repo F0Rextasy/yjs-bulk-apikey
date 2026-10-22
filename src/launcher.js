@@ -20,7 +20,12 @@ const defaults = { count: 30, conc: 2 };
 let cfg = { ...defaults };
 try { Object.assign(cfg, JSON.parse(fs.readFileSync(CONFIG, 'utf8'))); } catch (e) {}
 const save = () => fs.writeFileSync(CONFIG, JSON.stringify(cfg, null, 2) + '\n');
-const ARGS = {"mint":[]};
+// The mint task gets the saved settings and the pool file this menu counts:
+// `argsFor()` fills `count`/`conc` from launcher.config.json, and the pool is
+// passed only when the file exists (without one the engine keeps its own lists
+// and runs direct). An empty spec here meant the menu's answers never reached
+// the run — it minted the built-in default, from whichever exits it found.
+const ARGS = { mint: ['--count', 'count', '--conc', 'conc', ...(fs.existsSync(POOL) ? ['--pool', POOL, '--mail-pool', POOL] : [])] };
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const ask = (q, fb) => new Promise((r) => rl.question(q + (fb !== undefined ? ' [' + fb + ']' : '') + ': ', (a) => r(String(a).trim() || fb)));

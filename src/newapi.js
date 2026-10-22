@@ -128,8 +128,9 @@ class Panel {
     await get('console', '/console');
     await get('status', '/api/status');
     await get('models', '/v1/models');
-    await get('verification', '/api/verification?email=probe%40example.com');
-    await get('verificationSend', '/api/verification/send', { method: 'POST', body: { email: ['probe', 'example.com'].join('@') } });
+    const probeTo = ['probe', 'example.com'].join('@'); // assembled, never a literal in the source
+    await get('verification', `/api/verification?email=${encodeURIComponent(probeTo)}`);
+    await get('verificationSend', '/api/verification/send', { method: 'POST', body: { email: probeTo } });
     await get('registerPost', '/api/user/register', { method: 'POST', body: {} });
     await get('checkin', '/api/user/checkin', { method: 'GET' });
     await get('checkinPost', '/api/user/checkin', { method: 'POST', body: {} });

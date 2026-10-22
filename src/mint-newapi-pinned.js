@@ -61,10 +61,22 @@ const many = (name) => {
   return out;
 };
 
+/**
+ * Numeric flag. `one()` answers the *next* token even when that token is
+ * another flag (`--count --conc 4`), and `parseInt` turns that into NaN — which
+ * silently disables the very thing the flag controls (NaN count = no workers at
+ * all, still followed by a success line). A missing or unusable value keeps the
+ * documented default instead.
+ */
+const num = (name, dflt) => {
+  const n = parseInt(one(name, ''), 10);
+  return Number.isFinite(n) ? n : dflt;
+};
+
 const NAME = one('name');
 const BASE = one('base');
 const TAG = one('tag', (NAME || 'x').slice(0, 12));
-const COUNT = parseInt(one('count', '3'), 10);
+const COUNT = num('count', 3);
 const FOLDER = one('folder', `${NAME}-bulk`);
 const CHECKIN = !has('no-checkin');
 const POOLS = many('pool');
@@ -72,15 +84,15 @@ const MAIL_POOLS = many('mail-pool');
 const PROBE = has('probe');
 const PROBE_MAIL = has('probe-mail');
 const PROBE_REGISTER = has('probe-register');
-const POLL_MS = parseInt(one('poll-ms', '2500'), 10);
-const CODE_WAIT_MS = parseInt(one('code-wait', '150000'), 10);
-const MAX_CYCLE = parseInt(one('max-cycle', '3'), 10);
-const SCAN_MAX = parseInt(one('scan', '120'), 10);
-const SCAN_CONC = Math.min(parseInt(one('scan-conc', '6'), 10), 8);
-const BUDGET_MS = parseInt(one('budget', '2700'), 10) * 1000;
+const POLL_MS = num('poll-ms', 2500);
+const CODE_WAIT_MS = num('code-wait', 150000);
+const MAX_CYCLE = num('max-cycle', 3);
+const SCAN_MAX = num('scan', 120);
+const SCAN_CONC = Math.min(num('scan-conc', 6), 8);
+const BUDGET_MS = num('budget', 2700) * 1000;
 const AFF = one('aff', '');
 const OFFER_MODEL = one('model', '');
-const MAIL_TRIES = parseInt(one('mail-tries', '3'), 10);
+const MAIL_TRIES = num('mail-tries', 3);
 // Run shape (operator standard v3): `--preset` sets how many accounts are minted
 // at a time and the pause between account starts inside a worker. An explicit
 // --conc/--gap wins, and with no --preset the run stays the historical serial one.
@@ -99,8 +111,8 @@ const maskExit = (line) => String(line || 'direct').replace(/:[^:@/]+@/, ':***@'
 // Controls (Main, 2026-10-15): cycle 1 submits on the first poll; cycles
 // >= `--delay-from-cycle` deliberately wait `--delay-ms` before the register
 // POST, so "does a correct code survive 30 s of delay?" is measured, not guessed.
-const DELAY_MS = parseInt(one('delay-ms', '30000'), 10);
-const DELAY_FROM = parseInt(one('delay-from-cycle', '99'), 10);
+const DELAY_MS = num('delay-ms', 30000);
+const DELAY_FROM = num('delay-from-cycle', 99);
 // Reuse a mailbox that has demonstrably received this panel's mail before, instead
 // of generating a fresh Emailnator address (its boxes receive under different
 // underlying accounts; a box that already got the panel's mail is worth more).
@@ -128,6 +140,12 @@ if (!NAME || !BASE) {
   process.exit(1);
 }
 
+// A zero (or negative) count is a run that can only print "0/0" and stop.
+if (!Number.isInteger(COUNT) || COUNT < 1) {
+  console.error(`--count takes a positive integer (got ${JSON.stringify(one('count'))})`);
+  process.exit(2);
+}
+
 const DIR = providerDir(NAME);
 const PANEL_DOMAIN = (() => {
   try {
@@ -147,7 +165,23 @@ const log = (...a) => {
   appendLine(LOG, line);
 };
 
-const accounts = readJson(ACCOUNTS, []);
+// The ledger: a file that exists but does not parse is an error, never "no
+// accounts" — every minted account's password and key lives in this file, and
+// reading it as empty would rewrite it with just this run's records.
+const accounts = (() => {
+  let raw;
+  try {
+    raw = fs.readFileSync(ACCOUNTS, 'utf8');
+  } catch (e) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    throw new Error(`${ACCOUNTS} is not valid JSON (${e.message}) — move it aside if you want a fresh file; every account's password and key lives here`);
+  }
+})();
 const startedAt = Date.now();
 const withinBudget = () => Date.now() - startedAt < BUDGET_MS;
 
@@ -519,12 +553,34 @@ const MAIL_FILES = [
   path.join(__dirname, 'out', 'community-live-emailnator.txt'),
 ];
 
-function loadSoft(files) {
+function loadSoft(files, opts = { shuffle: false }) {
   try {
-    return loadExits(files, { shuffle: false });
+    return loadExits(files, opts);
   } catch (e) {
     return [];
   }
+}
+
+
+/**
+ * A pool file the caller *supplied* (`--pool`) that holds lines but no usable
+ * exit is not "no pool": a junk list, a saved HTML page, a masked
+ * `user:***@host` line or a socks4-only list all parse to zero exits, and
+ * treating that as direct mode would put the whole batch on this machine's own
+ * address. A missing / empty / comments-only file is still direct, as documented.
+ */
+function loadSupplied(files, opts) {
+  const exits = loadSoft(files, opts);
+  if (!files.length || exits.some(Boolean)) return exits;
+  const withLines = files.filter((f) => {
+    try {
+      return /[^\s#]/.test(fs.readFileSync(f, 'utf8'));
+    } catch (e) {
+      return false;
+    }
+  });
+  if (!withLines.length) return exits;
+  throw new Error(`--pool ${withLines.join(', ')} has candidate line(s) but no usable exit — a line must be host:port (socks4 lines are dropped); running direct would leave from this machine's own address`);
 }
 
 /**
@@ -593,9 +649,8 @@ async function probeRegister(panel, email) {
 }
 
 // --------------------------------------------------------------------------- main
-
 (async () => {
-  const priority = loadSoft(POOLS.length ? POOLS.filter((f) => !/emailnator|mail/.test(f)) : HOT_FILES);
+  const priority = loadSupplied(POOLS.length ? POOLS.filter((f) => !/emailnator|mail/.test(f)) : HOT_FILES);
   for (const a of loadAnnotated(path.join(__dirname, 'out', 'pool-exits.txt'))) {
     try {
       const p = require('./proxy.js').parseProxy(a.line);
@@ -632,7 +687,7 @@ async function probeRegister(panel, email) {
   const hunter = realCount ? new PinHunter(priorities, colds) : new PinHunter([null], []);
   const poolMail = await fetchPool({ target: 'www.emailnator.com', limit: 20 });
   const mailExits = [];
-  for (const f of [...(poolMail.lines || []), ...loadExits(MAIL_POOLS.length ? MAIL_POOLS : MAIL_FILES, { shuffle: true }).filter((p) => p).map((p) => ({ line: p.line, klass: p.klass }))]) {
+  for (const f of [...(poolMail.lines || []), ...loadSupplied(MAIL_POOLS.length ? MAIL_POOLS : MAIL_FILES, { shuffle: true }).filter((p) => p).map((p) => ({ line: p.line, klass: p.klass }))]) {
     try {
       const p = require('./proxy.js').parseProxy(f.line);
       if (p) {
@@ -676,7 +731,7 @@ async function probeRegister(panel, email) {
       await sleep(20000);
       continue;
     }
-    const pinLine = pin ? pin.line : 'direct';
+    const pinLine = maskExit(pin ? pin.line : 'direct');
     const panel = pinnedPanel(pin);
     try {
       const r = await panel.status();
@@ -684,6 +739,10 @@ async function probeRegister(panel, email) {
     } catch (e) {
       log(`  gates probe: ${pinLine} died (${String(e.message).slice(0, 80)}) — re-pinning`);
       hunter.retire(pin);
+    } finally {
+      // The gates probe's keep-alive agent owns a tunnel too: close it here, or
+      // the exit holds that socket for the whole run.
+      if (panel.agent) panel.agent.destroy();
     }
   }
   if (!st) throw new Error(`no exit answers ${BASE}/api/status (scanned ${hunter.scanned})`);
@@ -800,11 +859,11 @@ async function probeRegister(panel, email) {
           break;
         }
         const pinLine = pin ? pin.line : 'direct';
-        cyc.exit = pinLine;
+        cyc.exit = maskExit(pinLine);
         cyc.exitClass = (pin && pin.klass) || 'unknown';
         startLine(pinLine);
         hunter.claim(pin, owner);
-        log(`  pin ${pinLine}${pin && pin.klass ? ` [class=${pin.klass}]` : ''}${reuse ? ' (reused)' : ` (scanned ${tested})`}`);
+        log(`  pin ${maskExit(pinLine)}${pin && pin.klass ? ` [class=${pin.klass}]` : ''}${reuse ? ' (reused)' : ` (scanned ${tested})`}`);
         panel = pinnedPanel(pin);
 
         if (!box) {
@@ -942,8 +1001,9 @@ async function probeRegister(panel, email) {
             hunter.claim(got2.pin, owner);
             panel.supply.pin = got2.pin;
             panel.supply.dead = false;
+            if (panel.agent) panel.agent.destroy(); // the old pin's tunnel goes with its agent
             panel.agent = got2.pin ? createAgent(got2.pin, { keepAlive: true, maxSockets: 1 }) : null;
-            log(`  re-pin for ${why}: ${got2.pin ? got2.pin.line : 'direct'}`);
+            log(`  re-pin for ${why}: ${got2.pin ? maskExit(got2.pin.line) : 'direct'}`);
             return got2.pin;
           };
           const guard = async (fn, label) => {
@@ -1012,7 +1072,7 @@ async function probeRegister(panel, email) {
               hunter.claim(alt.pin, owner);
               verifyExit = alt.pin.line || `${alt.pin.host}:${alt.pin.port}`;
               independent = true;
-              log(`  verify exit ${verifyExit} (mint exit ${mintExit}, independent=${independent})`);
+              log(`  verify exit ${maskExit(verifyExit)} (mint exit ${maskExit(mintExit)}, independent=${independent})`);
             }
           } catch (e) {
             log(`  verify exit unavailable (${String(e.message).slice(0, 80)}) — verifying on the mint exit`);
@@ -1024,8 +1084,8 @@ async function probeRegister(panel, email) {
             endpoint: '/v1/models',
             status: models.status,
             model: null,
-            mintExit,
-            exit: verifyExit,
+            mintExit: maskExit(mintExit),
+            exit: maskExit(verifyExit),
             independent,
             sameEgress: !independent,
           };
@@ -1042,7 +1102,13 @@ async function probeRegister(panel, email) {
           } else {
             rec.verify.note = 'no model ids listed — completion check skipped';
           }
-          const ok = models.status === 200 && (chatModel ? rec.verify.chat_status === 200 || /balance|quota|余额|分组|group/i.test(rec.verify.chat_text || '') : true);
+          // A live key is one the panel answered with: 200 + the completion, or
+          // the panel's own "you are out of quota / not in this group" refusal
+          // (a fresh account here can serve nothing yet — probe-group.js exists
+          // for that). A 200 model list with *no* ids, and a mint that never got
+          // to ask, are not a verification: the key stays out of keys.txt and is
+          // kept in accounts.json for a re-check.
+          const ok = models.status === 200 && (rec.verify.chat_status === 200 || /balance|quota|余额|分组|group/i.test(rec.verify.chat_text || ''));
           rec.verify.ok = ok;
           if (ok && !independent) rec.verify.sameEgressFlagged = 'verified on the mint exit — independence not established';
           if (ok) {
@@ -1107,6 +1173,11 @@ async function probeRegister(panel, email) {
         }
         rec.status = cyc.status;
         if (!exitErr && /no exit/i.test(cyc.error)) break;
+      } finally {
+        // The pin's keep-alive agent owns one tunnel for the cycle's whole life:
+        // close it where the cycle ends, or every attempt leaves a socket (and
+        // an exit-side tunnel) open until the process exits.
+        if (panel && panel.agent) panel.agent.destroy();
       }
     }
 
@@ -1133,8 +1204,13 @@ async function probeRegister(panel, email) {
   await Promise.all(Array.from({ length: Math.min(CONC, total) }, worker));
 
   const minted = accounts.filter((a) => a.provider === NAME && a.status === 'minted').length;
+  // A run that minted fewer keys than it was asked for is not OK — the line says
+  // so and the exit code carries it, so a wrapper (scheduler, batch file, human
+  // skimming the last line) cannot read success off an empty run.
+  const short = made.length < total;
+  console.log(`${String(NAME || 'mint').toUpperCase()} ${made.length}/${total} ${short ? '— short of the target' : 'OK'}`);
+  if (short) process.exitCode = 1;
   log(`done: ${NAME} — ${made.length} new key(s) this run, ${minted} minted account(s) total · pins scanned=${hunter.scanned} statuses=${JSON.stringify(hunter.statusHist)}`);
-  console.log(`${String(NAME || 'mint').toUpperCase()} ${made.length}/${total} OK`);
 })().catch((e) => {
   log(`FATAL ${e && e.stack ? e.stack.split('\n').slice(0, 3).join(' | ') : e}`);
   process.exit(1);

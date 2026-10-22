@@ -49,7 +49,7 @@ class RawWebSocket extends EventEmitter {
     this.timeoutMs = timeoutMs;
     this.buffer = Buffer.alloc(0);
     this.connected = false;
-    this._queue = [];
+    this._fragments = null;
   }
 
   connect() {
@@ -109,7 +109,14 @@ class RawWebSocket extends EventEmitter {
           this.connected = true;
           this.socket = socket;
           clearTimeout(timer);
-          if (this.buffer.length) this._parse(this.buffer);
+          // Hand the leftover over as its own chunk: `_parse` concatenates with
+          // `this.buffer`, so passing that buffer itself parsed it twice and
+          // delivered the first message to the caller two times.
+          if (this.buffer.length) {
+            const leftover = this.buffer;
+            this.buffer = Buffer.alloc(0);
+            this._parse(leftover);
+          }
           resolve(this);
           return;
         }
@@ -150,8 +157,14 @@ class RawWebSocket extends EventEmitter {
       }
       this.buffer = this.buffer.slice(offset + len);
 
-      if (opcode === 0x1) {
-        this.emit('message', payload.toString('utf8'));
+      const fin = (b0 & 0x80) !== 0;
+      if (opcode === 0x1 || opcode === 0x0) {
+        this._fragments = opcode === 0x1 ? [payload] : (this._fragments || []).concat([payload]);
+        if (fin) {
+          const text = Buffer.concat(this._fragments).toString('utf8');
+          this._fragments = null;
+          this.emit('message', text);
+        }
       } else if (opcode === 0x8) {
         this.emit('close');
         this.socket && this.socket.end();
@@ -229,14 +242,17 @@ class CDP extends EventEmitter {
     const payload = { id, method, params };
     if (sessionId) payload.sessionId = sessionId;
     return new Promise((resolve, reject) => {
-      this._pending.set(id, { resolve, reject });
-      this.ws.send(JSON.stringify(payload));
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         if (this._pending.has(id)) {
           this._pending.delete(id);
           reject(new Error(`CDP timeout: ${method}`));
         }
       }, this.opts.commandTimeoutMs || 45000);
+      this._pending.set(id, {
+        resolve: (value) => { clearTimeout(timer); resolve(value); },
+        reject: (error) => { clearTimeout(timer); reject(error); },
+      });
+      this.ws.send(JSON.stringify(payload));
     });
   }
 

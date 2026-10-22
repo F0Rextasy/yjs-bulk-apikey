@@ -45,8 +45,11 @@ async function login9router(base, password) {
     headers: { 'Content-Type': 'application/json', 'User-Agent': UA },
     body: JSON.stringify({ password: password ?? DEFAULTS.password }),
   });
-  const sc = typeof res.headers.getSetCookie === 'function' ? res.headers.getSetCookie() : [];
-  const cookie = sc.map((c) => c.split(';')[0]).join('; ');
+  // `Headers.getSetCookie()` is Node >= 18.14 (undici 5.19) while this package
+  // says node >= 18: without the fallback the jar stays empty on an older 18.x,
+  // the login still reports ok, and every following call answers 401.
+  const raw = typeof res.headers.getSetCookie === 'function' ? res.headers.getSetCookie() : res.headers.get('set-cookie') ? [res.headers.get('set-cookie')] : [];
+  const cookie = raw.map((c) => c.split(';')[0]).join('; ');
   return { ok: res.ok, cookie, body: (await res.text()).slice(0, 200) };
 }
 

@@ -171,6 +171,10 @@ class Imap {
       if (literal) {
         const need = parseInt(literal[1], 10);
         if (this.buffer.length < lineEnd + 1 + need + 1) return; // wait for the rest
+        // Keep the literal: the FETCH caller parses the message out of it. The
+        // skip below exists only so a body containing "A1 OK" is not read as the
+        // command's completion — dropping the bytes loses the mail itself.
+        this.pending.response += line + this.buffer.slice(lineEnd + 1, lineEnd + 1 + need);
         this.buffer = this.buffer.slice(lineEnd + 1 + need);
         continue;
       }

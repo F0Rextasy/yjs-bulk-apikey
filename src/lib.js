@@ -20,7 +20,7 @@ const https = require('https');
 const path = require('path');
 const { URL } = require('url');
 
-const { parseProxy, createAgent, loadPoolFile } = require(path.join(__dirname, 'proxy'));
+const { parseProxy, createAgent, createHttpAgent, loadPoolFile } = require(path.join(__dirname, 'proxy'));
 
 const ROOT = path.resolve(__dirname);
 const CODE_RE = /[0-9]{4,8}/;
@@ -119,9 +119,11 @@ function req(proxy, url, { method = 'GET', headers = {}, body = null, timeoutMs 
         host: u.hostname,
         port: u.port || (u.protocol === 'https:' ? 443 : 80),
         path: u.pathname + u.search,
-        // Direct mode (`null`): no agent at all, so Node dials host:port
-        // itself — no tunnel, no CONNECT.
-        agent: proxy ? agent || createAgent(proxy) : undefined,
+        // Direct mode (`null`): no agent at all, so Node dials host:port itself
+        // — no tunnel, no CONNECT. An https agent cannot carry an `http:`
+        // request (Node refuses the pairing before any I/O), so a plain-HTTP
+        // target picks the matching agent.
+        agent: proxy ? (u.protocol === 'https:' ? agent || createAgent(proxy) : createHttpAgent(proxy)) : undefined,
         headers: h,
       },
       (res) => {
@@ -268,8 +270,8 @@ function brokerHttp(base, pathname, { method = 'GET', body = null, timeoutMs = 1
 }
 
 /**
- * Gmail aliases exist in two forms of the *same* mailbox: `<user>@gmail.com`
- * (plain) and `<u.s.e.r>@gmail.com` (dotted) — both deliver to one inbox.
+ * Gmail aliases exist in two forms of the *same* mailbox: the plain local part,
+ * and the dotted one (each character separated by a dot) at the same domain.
  * Measured (2026-10-15, five panels): the dotted form is read as a disposable sub-address and refused,
  * while the plain form is accepted. Emailnator hands out the dotted variant as
  * the box identity, so the reader keys on it — but what goes into a register
@@ -448,17 +450,23 @@ function readJson(file, dflt = null) {
     return dflt;
   }
 }
-
+/**
+ * Writes through a temp file and renames it over the target: these files carry
+ * account passwords and API keys, and a kill mid-write must not be able to
+ * truncate the only copy. `mode` is POSIX-only (Windows ignores it).
+ */
 function writeJson(file, value) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, JSON.stringify(value, null, 2));
+  const tmp = `${file}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(value, null, 2), { mode: 0o600 });
+  fs.renameSync(tmp, file);
 }
 
 /** Appends to a newline log without ever throwing (logging must not break a mint). */
 function appendLine(file, line) {
   try {
     fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.appendFileSync(file, line + '\n');
+    fs.appendFileSync(file, line + '\n', { mode: 0o600 });
   } catch (e) {
     /* ignore */
   }
