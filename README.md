@@ -89,7 +89,7 @@ A key is written to `keys.txt` only after the live API answers with it:
 | auth + model list | `GET https://api.yjs.im/v1/models` | `200` + the account's model ids (14 on the `Free` group) |
 | real completion | `POST https://api.yjs.im/v1/chat/completions` (`deepseek-v4-flash-0731`) | `200` + the assistant message |
 
-The batch this repository shipped from: **3 distinct accounts → 3 keys, every one verified**
+The batch this repository shipped from: **keys verified**
 (`models` 200 + `deepseek-v4-flash-0731` chat 200), each re-checked from an exit **different** from
 the one that minted it.
 

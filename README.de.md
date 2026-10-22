@@ -1,6 +1,7 @@
 <div align="center">
 
 ```
+
 ██╗   ██╗   ██╗███████╗
 ╚██╗ ██╔╝   ██║██╔════╝
  ╚████╔╝    ██║███████╗
@@ -61,6 +62,7 @@ printf 'socks5://127.0.0.1:1080\n' > proxies.txt
 
 # 2) go — one run mints one key per fresh account
 node src/launcher.js                 # interactive menu: mint / settings
+
 # or drive it directly:
 node src/cli.js mint --count 30 --conc 2
 ```
