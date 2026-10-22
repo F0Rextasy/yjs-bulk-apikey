@@ -268,8 +268,8 @@ function brokerHttp(base, pathname, { method = 'GET', body = null, timeoutMs = 1
 }
 
 /**
- * Gmail aliases exist in two forms of the *same* mailbox: `user@gmail.com`
- * (plain) and `u.s.e.r@gmail.com` (dotted) — both deliver to one inbox.
+ * Gmail aliases exist in two forms of the *same* mailbox: `<user>@gmail.com`
+ * (plain) and `<u.s.e.r>@gmail.com` (dotted) — both deliver to one inbox.
  * Measured (2026-10-15, five panels): the dotted form is read as a disposable sub-address and refused,
  * while the plain form is accepted. Emailnator hands out the dotted variant as
  * the box identity, so the reader keys on it — but what goes into a register
