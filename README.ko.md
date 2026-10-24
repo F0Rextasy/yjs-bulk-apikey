@@ -19,8 +19,9 @@
 [![License](https://img.shields.io/badge/license-MIT-6ea8fe?style=for-the-badge)](LICENSE)
 [![Models](https://img.shields.io/badge/models-14%20free-412991?style=for-the-badge)](src/models.json)
 [![9Router](https://img.shields.io/badge/9Router-connector-8B5CF6.svg?style=for-the-badge)](#-connect-to-9router)
+[![OmniRoute](https://img.shields.io/badge/OmniRoute-connector-8B5CF6.svg?style=for-the-badge)](#-connect-to-omniroute)
 
-[🛠 빠른 시작](#-quick-start) · [✅ 검증됨](#-verified-working--every-key-is-tested) · [🧭 작동 방식](#-how-it-works) · [🤖 모델 및 무료 티어](#-models--free-tier) · [🔌 9Router](#-connect-to-9router) · [⚙️ 옵션](#️-cli-options) · [🛰️ 프록시](#️-behind-a-proxy) · [🐞 이슈](#-issues)
+[🛠 빠른 시작](#-quick-start) · [✅ 검증됨](#-verified-working--every-key-is-tested) · [🧭 작동 방식](#-how-it-works) · [🤖 모델 및 무료 티어](#-models--free-tier) · [🔌 9Router](#-connect-to-9router) · [🔌 OmniRoute](#-connect-to-omniroute) · [⚙️ 옵션](#️-cli-options) · [🛰️ 프록시](#️-behind-a-proxy) · [🐞 이슈](#-issues)
 
 </div>
 
@@ -148,6 +149,31 @@ node src/connect-9router.js --help        # every flag and default
 ```
 
 기본값: 베이스 `http://localhost:20128`, 비밀번호 `123456`, 모델 접두사 `yjs`, 노드 `yjs`, 업스트림 `https://api.yjs.im/v1`, 기본 모델 `deepseek-v4-flash-0731`. 발급된 다른 키를 `--name "<label 2>"`로 등록하세요 — 노드는 유지되고 모든 키는 9Router가 로드 밸런싱할 수 있는 또 다른 연결이 됩니다. 그런 다음 9Router 안에서 모델을 선택하세요:
+
+```
+yjs/deepseek-v4-flash-0731
+yjs/glm-5.3
+```
+
+## 🔌 OmniRoute에 연결
+
+이 도구가 발급하는 키는 일반적인 OpenAI 호환 자격 증명이므로, 로컬 OmniRoute 인스턴스가 다른 제공자와 마찬가지로 이를 서비스할 수 있습니다: yjs.im용 `openai-compatible` 노드 하나, 키당 연결 하나.
+
+```bash
+node src/connect-omniroute.js \
+  --base http://localhost:20128 --password 123456 \
+  --api-key <key>            # or env NINEROUTER_API_KEY
+```
+
+런처 메뉴와 CLI 디스패처는 동일한 커넥터를 구동합니다:
+
+```bash
+node src/launcher.js --connect-omniroute    # asks for base URL, password and key (the key is not echoed)
+node src/cli.js connect --api-key <key>   # the same task, non-interactive
+node src/connect-omniroute.js --help        # every flag and default
+```
+
+기본값: 베이스 `http://localhost:20128`, 비밀번호 `123456`, 모델 접두사 `yjs`, 노드 `yjs`, 업스트림 `https://api.yjs.im/v1`, 기본 모델 `deepseek-v4-flash-0731`. 발급된 다른 키를 `--name "<label 2>"`로 등록하세요 — 노드는 유지되고 모든 키는 OmniRoute가 로드 밸런싱할 수 있는 또 다른 연결이 됩니다. 그런 다음 OmniRoute 안에서 모델을 선택하세요:
 
 ```
 yjs/deepseek-v4-flash-0731

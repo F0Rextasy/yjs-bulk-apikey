@@ -15,8 +15,9 @@
   },
   "scripts": {
     "start": "node src/launcher.js",
-    "mint": "node src/cli.js",
-    "9router": "node src/connect-9router.js"
+    "mint": "node src/cli.js --auto",
+    "9router": "node src/connect-9router.js",
+    "omniroute": "node src/connect-omniroute.js"
   },
   "keywords": [
     "api-key",
@@ -30,23 +31,7 @@
     "openai-compatible"
   ],
   "files": [
-    "src/cdp.js",
-    "src/chrome-flags.js",
-    "src/cli.js",
-    "src/connect-9router.js",
-    "src/imap.js",
-    "src/launcher.js",
-    "src/lib.js",
-    "src/mailbox-imap.js",
-    "src/mint-newapi-pinned.js",
-    "src/mint.js",
-    "src/newapi.js",
-    "src/probe-group.js",
-    "src/probe-verify.js",
-    "src/provider-cli.js",
-    "src/proxy.js",
-    "src/xwave-lib.js",
-    "src/models.json",
+    "src",
     "README.md",
     "LICENSE"
   ]

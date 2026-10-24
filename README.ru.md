@@ -19,8 +19,9 @@
 [![License](https://img.shields.io/badge/license-MIT-6ea8fe?style=for-the-badge)](LICENSE)
 [![Models](https://img.shields.io/badge/models-14%20free-412991?style=for-the-badge)](src/models.json)
 [![9Router](https://img.shields.io/badge/9Router-connector-8B5CF6.svg?style=for-the-badge)](#-connect-to-9router)
+[![OmniRoute](https://img.shields.io/badge/OmniRoute-connector-8B5CF6.svg?style=for-the-badge)](#-connect-to-omniroute)
 
-[🛠 Быстрый старт](#-quick-start) · [✅ Проверено](#-verified-working--every-key-is-tested) · [🧭 Как это работает](#-how-it-works) · [🤖 Модели и бесплатный уровень](#-models--free-tier) · [🔌 9Router](#-connect-to-9router) · [⚙️ Параметры](#️-cli-options) · [🛰️ За прокси](#️-behind-a-proxy) · [🐞 Проблемы](#-issues)
+[🛠 Быстрый старт](#-quick-start) · [✅ Проверено](#-verified-working--every-key-is-tested) · [🧭 Как это работает](#-how-it-works) · [🤖 Модели и бесплатный уровень](#-models--free-tier) · [🔌 9Router](#-connect-to-9router) · [🔌 OmniRoute](#-connect-to-omniroute) · [⚙️ Параметры](#️-cli-options) · [🛰️ За прокси](#️-behind-a-proxy) · [🐞 Проблемы](#-issues)
 
 </div>
 
@@ -168,6 +169,37 @@ node src/connect-9router.js --help        # every flag and default
 `deepseek-v4-flash-0731`. Зарегистрируйте другой выпущенный ключ с `--name "<label 2>"` — узел остаётся, и
 каждый ключ становится ещё одним подключением, по которому 9Router может балансировать нагрузку. Затем выберите модель внутри
 9Router:
+
+```
+yjs/deepseek-v4-flash-0731
+yjs/glm-5.3
+```
+
+## 🔌 Подключение к OmniRoute
+
+Ключи, которые выпускает этот инструмент, — обычные учётные данные, совместимые с OpenAI, поэтому локальный
+экземпляр OmniRoute может обслуживать их как любого другого провайдера: один узел `openai-compatible`
+для yjs.im, одно подключение на ключ.
+
+```bash
+node src/connect-omniroute.js \
+  --base http://localhost:20128 --password 123456 \
+  --api-key <key>            # or env NINEROUTER_API_KEY
+```
+
+Меню лаунчера и диспетчер CLI управляют одним и тем же коннектором:
+
+```bash
+node src/launcher.js --connect-omniroute    # asks for base URL, password and key (the key is not echoed)
+node src/cli.js connect --api-key <key>   # the same task, non-interactive
+node src/connect-omniroute.js --help        # every flag and default
+```
+
+По умолчанию: базовый URL `http://localhost:20128`, пароль `123456`, префикс модели
+`yjs`, узел `yjs`, upstream `https://api.yjs.im/v1`, модель по умолчанию
+`deepseek-v4-flash-0731`. Зарегистрируйте другой выпущенный ключ с `--name "<label 2>"` — узел остаётся, и
+каждый ключ становится ещё одним подключением, по которому OmniRoute может балансировать нагрузку. Затем выберите модель внутри
+OmniRoute:
 
 ```
 yjs/deepseek-v4-flash-0731

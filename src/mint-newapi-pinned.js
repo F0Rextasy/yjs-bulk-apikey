@@ -42,7 +42,10 @@ const { presetArgv, resolvePreset } = require('./preset');
 
 let emailnator = null;
 try {
-  emailnator = require(path.join(__dirname, 'cloudflare-wai', 'emailnator.js'));
+  // Vendored in this repo: the lab kept it at `cloudflare-wai/emailnator.js`,
+  // which never shipped, so the default mail rail died with "emailnator module
+  // missing" (measured 2026-10-24, lane FixCodeErrors).
+  emailnator = require(path.join(__dirname, 'vendor', 'emailnator.js'));
 } catch (e) {
   /* reported on first use */
 }
@@ -157,6 +160,7 @@ const PANEL_DOMAIN = (() => {
   }
 })();
 const KEYS = path.join(DIR, 'keys.txt');
+const KEYS_DEAD = path.join(DIR, 'keys-dead.txt');
 const ACCOUNTS = path.join(DIR, 'accounts.json');
 const LOG = path.join(DIR, 'out', `pinned-${new Date().toISOString().slice(0, 10)}.log`);
 const log = (...a) => {
@@ -755,6 +759,7 @@ async function probeRegister(panel, email) {
   }
 
   const made = [];
+  const dead = [];
   const total = Math.min(COUNT, PROBE ? 1 : COUNT);
 
   // ---- mailbox transport probe: which read shape actually returns a body?
@@ -1119,7 +1124,13 @@ async function probeRegister(panel, email) {
             log(`  ✔ MINTED (models=${models.status}, chat=${rec.verify.chat_status || 'n/a'}, quota=${rec.steps.self.quota})`);
           } else {
             rec.status = 'key-unverified';
-            log(`  ✖ key failed verification (models=${models.status}${chatModel ? `, chat=${rec.verify.chat_status}` : ''})`);
+            // A definitive refusal (401/402/403) is parked in keys-dead.txt as
+            // `key<TAB>sebep<TAB>ISO` for a later re-check; a transport failure
+            // or a 429 is not a verdict, so that key stays out of the report.
+            const why = [models.status, rec.verify.chat_status].find((s) => [401, 402, 403].includes(Number(s)));
+            if (why && (!fs.existsSync(KEYS_DEAD) || !fs.readFileSync(KEYS_DEAD, 'utf8').includes(key))) appendLine(KEYS_DEAD, `${key}\t${why}\t${new Date().toISOString()}`);
+            if (why) dead.push(key);
+            log(`  ✖ key failed verification (models=${models.status}${chatModel ? `, chat=${rec.verify.chat_status}` : ''})${why ? ' → keys-dead.txt' : ' (not a verdict — kept out of keys-dead.txt)'}`);
           }
           done = true;
           break;
@@ -1209,6 +1220,7 @@ async function probeRegister(panel, email) {
   // skimming the last line) cannot read success off an empty run.
   const short = made.length < total;
   console.log(`${String(NAME || 'mint').toUpperCase()} ${made.length}/${total} ${short ? '— short of the target' : 'OK'}`);
+  if (dead.length) console.log(`  ! ${dead.length} key(s) failed verification → ${KEYS_DEAD} (kept out of keys.txt)`);
   if (short) process.exitCode = 1;
   log(`done: ${NAME} — ${made.length} new key(s) this run, ${minted} minted account(s) total · pins scanned=${hunter.scanned} statuses=${JSON.stringify(hunter.statusHist)}`);
 })().catch((e) => {

@@ -14,6 +14,10 @@
 const path = require('path');
 const { spawnSync } = require('child_process');
 
+// The captcha entry point of this repo (see src/solver.js): this rail is HTTP,
+// so --auto is the default and needs no token.
+const { solverState } = require('./solver.js');
+
 const TASKS = {
   mint: { file: 'mint.js', note: 'create fresh accounts and mint one key each' },
   connect: { file: 'connect-9router.js', note: 'register the provider node + one API key with a local 9Router' },
@@ -22,11 +26,16 @@ const TASKS = {
 function help() {
   console.log('yjs-bulk-apikey — One yjs account per API key — captcha-free signup, live-verified, any number you want.\n');
   console.log('usage: node src/cli.js <task> [options]\n');
+  console.log('one command:');
+  console.log('  node src/cli.js mint --count N        mint N accounts, one key each (auto, no token)\n');
   console.log('tasks:');
   for (const [name, t] of Object.entries(TASKS)) console.log('  ' + name.padEnd(9) + ' ' + t.note);
   console.log('\noptions: every task takes its own flags — ask it directly:');
-  console.log('  node src/<task-file> --help');
+  console.log('  node src/cli.js <task> --help');
+  console.log('  --count N                     accounts (= keys) to mint                [30]');
+  console.log('  --auto                        captcha step automatic — DEFAULT, always on');
   console.log('  --preset turbo|balanced|safe  run shape for the task (5/4/2 workers, 3/6/8 s apart)');
+  console.log('  captcha: ' + solverState());
   console.log('\nproxy pool [optional]:');
   console.log('  --pool <file>   one exit per line — scheme://host:port[#comment], user:pass@ supported  [optional]');
   console.log('  Requests go through your proxy list when one is provided (--pool). Without a pool the');

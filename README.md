@@ -18,8 +18,9 @@
 [![License](https://img.shields.io/badge/license-MIT-6ea8fe?style=for-the-badge)](LICENSE)
 [![Models](https://img.shields.io/badge/models-14%20free-412991?style=for-the-badge)](src/models.json)
 [![9Router](https://img.shields.io/badge/9Router-connector-8B5CF6.svg?style=for-the-badge)](#-connect-to-9router)
+[![OmniRoute](https://img.shields.io/badge/OmniRoute-connector-8B5CF6.svg?style=for-the-badge)](#-connect-to-omniroute)
 
-[🛠 Quick start](#-quick-start) · [✅ Verified](#-verified-working--every-key-is-tested) · [🧭 How it works](#-how-it-works) · [🤖 Models & free tier](#-models--free-tier) · [🔌 9Router](#-connect-to-9router) · [⚙️ Options](#️-cli-options) · [🛰️ Proxies](#️-behind-a-proxy) · [🐞 Issues](#-issues)
+[🛠 Quick start](#-quick-start) · [✅ Verified](#-verified-working--every-key-is-tested) · [🧭 How it works](#-how-it-works) · [🤖 Models & free tier](#-models--free-tier) · [🔌 9Router](#-connect-to-9router) · [🔌 OmniRoute](#-connect-to-omniroute) · [⚙️ Options](#️-cli-options) · [🛰️ Proxies](#️-behind-a-proxy) · [🐞 Issues](#-issues)
 
 </div>
 
@@ -76,7 +77,7 @@ Everything the tools write lands **next to the code**: `src/keys.txt`, `src/acco
 
 `node src/cli.js help` lists the tasks;
  every task takes its own flags — ask it directly
-(`node src/mint.js --help`). Keys land in `keys.txt`, one per line; per-account detail (e-mail,
+(`node src/cli.js mint --help`). Keys land in `keys.txt`, one per line; per-account detail (e-mail,
 steps, verify result) lands in `accounts.json`. Settings from the launcher persist in
 `launcher.config.json`.
 
@@ -179,11 +180,42 @@ yjs/deepseek-v4-flash-0731
 yjs/glm-5.3
 ```
 
+## 🔌 Connect to OmniRoute
+
+The keys this tool mints are ordinary OpenAI-compatible credentials, so a local
+OmniRoute instance can serve them like any other provider: one `openai-compatible`
+node for yjs.im, one connection per key.
+
+```bash
+node src/connect-omniroute.js \
+  --base http://localhost:20128 --password 123456 \
+  --api-key <key>            # or env NINEROUTER_API_KEY
+```
+
+The launcher menu and the CLI dispatcher drive the same connector:
+
+```bash
+node src/launcher.js --connect-omniroute    # asks for base URL, password and key (the key is not echoed)
+node src/cli.js connect --api-key <key>   # the same task, non-interactive
+node src/connect-omniroute.js --help        # every flag and default
+```
+
+Defaults: base `http://localhost:20128`, password `123456`, model prefix
+`yjs`, node `yjs`, upstream `https://api.yjs.im/v1`, default model
+`deepseek-v4-flash-0731`. Register another minted key with `--name "<label 2>"` — the node stays and
+every key becomes another connection OmniRoute can load-balance across. Then pick a model inside
+OmniRoute:
+
+```
+yjs/deepseek-v4-flash-0731
+yjs/glm-5.3
+```
+
 ## ⚙️ CLI options
 
 | task | flags |
 |---|---|
-| `mint` | `--count N` (30) · `--conc N` (2) — plus the engine's own flags (`node src/mint.js --help`) |
+| `mint` | `--count N` (30) · `--conc N` (2) · `--mail emailnator` (default) or `--mail imap` + `IMAP_USER`/`IMAP_PASS` — plus the engine's own flags (`node src/cli.js mint --help`) |
 | `launcher.js` | interactive: mint / settings (count, concurrency) — persisted in `launcher.config.json` |
 
 ## 🛰️ Behind a proxy

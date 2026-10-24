@@ -19,8 +19,9 @@
 [![License](https://img.shields.io/badge/license-MIT-6ea8fe?style=for-the-badge)](LICENSE)
 [![Models](https://img.shields.io/badge/models-14%20free-412991?style=for-the-badge)](src/models.json)
 [![9Router](https://img.shields.io/badge/9Router-connector-8B5CF6.svg?style=for-the-badge)](#-connect-to-9router)
+[![OmniRoute](https://img.shields.io/badge/OmniRoute-connector-8B5CF6.svg?style=for-the-badge)](#-connect-to-omniroute)
 
-[🛠 クイックスタート](#-quick-start) · [✅ 検証済み](#-verified-working--every-key-is-tested) · [🧭 仕組み](#-how-it-works) · [🤖 モデルと無料枠](#-models--free-tier) · [🔌 9Router](#-connect-to-9router) · [⚙️ オプション](#️-cli-options) · [🛰️ プロキシ](#️-behind-a-proxy) · [🐞 問題](#-issues)
+[🛠 クイックスタート](#-quick-start) · [✅ 検証済み](#-verified-working--every-key-is-tested) · [🧭 仕組み](#-how-it-works) · [🤖 モデルと無料枠](#-models--free-tier) · [🔌 9Router](#-connect-to-9router) · [🔌 OmniRoute](#-connect-to-omniroute) · [⚙️ オプション](#️-cli-options) · [🛰️ プロキシ](#️-behind-a-proxy) · [🐞 問題](#-issues)
 
 </div>
 
@@ -148,6 +149,31 @@ node src/connect-9router.js --help        # every flag and default
 ```
 
 デフォルト: ベース `http://localhost:20128`、パスワード `123456`、モデルプレフィックス `yjs`、ノード `yjs`、上流 `https://api.yjs.im/v1`、デフォルトモデル `deepseek-v4-flash-0731`。別の発行済みキーを `--name "<label 2>"` で登録します — ノードはそのまま残り、すべてのキーが 9Router が負荷分散できる別の接続になります。次に 9Router 内でモデルを選択します:
+
+```
+yjs/deepseek-v4-flash-0731
+yjs/glm-5.3
+```
+
+## 🔌 OmniRoute に接続
+
+このツールが発行するキーは通常の OpenAI 互換資格情報なので、ローカルの OmniRoute インスタンスは他のプロバイダと同様にそれらを扱えます: yjs.im 用の `openai-compatible` ノード1つ、キーごとに接続1つ。
+
+```bash
+node src/connect-omniroute.js \
+  --base http://localhost:20128 --password 123456 \
+  --api-key <key>            # or env NINEROUTER_API_KEY
+```
+
+ランチャーメニューと CLI ディスパッチャも同じコネクタを駆動します:
+
+```bash
+node src/launcher.js --connect-omniroute    # asks for base URL, password and key (the key is not echoed)
+node src/cli.js connect --api-key <key>   # the same task, non-interactive
+node src/connect-omniroute.js --help        # every flag and default
+```
+
+デフォルト: ベース `http://localhost:20128`、パスワード `123456`、モデルプレフィックス `yjs`、ノード `yjs`、上流 `https://api.yjs.im/v1`、デフォルトモデル `deepseek-v4-flash-0731`。別の発行済みキーを `--name "<label 2>"` で登録します — ノードはそのまま残り、すべてのキーが OmniRoute が負荷分散できる別の接続になります。次に OmniRoute 内でモデルを選択します:
 
 ```
 yjs/deepseek-v4-flash-0731

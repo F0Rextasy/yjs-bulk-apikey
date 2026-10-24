@@ -19,8 +19,9 @@
 [![License](https://img.shields.io/badge/license-MIT-6ea8fe?style=for-the-badge)](LICENSE)
 [![Models](https://img.shields.io/badge/models-14%20free-412991?style=for-the-badge)](src/models.json)
 [![9Router](https://img.shields.io/badge/9Router-connector-8B5CF6.svg?style=for-the-badge)](#-connect-to-9router)
+[![OmniRoute](https://img.shields.io/badge/OmniRoute-connector-8B5CF6.svg?style=for-the-badge)](#-connect-to-omniroute)
 
-[🛠 快速开始](#-quick-start) · [✅ 已验证](#-verified-working--every-key-is-tested) · [🧭 工作原理](#-how-it-works) · [🤖 模型与免费额度](#-models--free-tier) · [🔌 9Router](#-connect-to-9router) · [⚙️ 选项](#️-cli-options) · [🛰️ 代理](#️-behind-a-proxy) · [🐞 问题](#-issues)
+[🛠 快速开始](#-quick-start) · [✅ 已验证](#-verified-working--every-key-is-tested) · [🧭 工作原理](#-how-it-works) · [🤖 模型与免费额度](#-models--free-tier) · [🔌 9Router](#-connect-to-9router) · [🔌 OmniRoute](#-connect-to-omniroute) · [⚙️ 选项](#️-cli-options) · [🛰️ 代理](#️-behind-a-proxy) · [🐞 问题](#-issues)
 
 </div>
 
@@ -148,6 +149,31 @@ node src/connect-9router.js --help        # every flag and default
 ```
 
 默认值：base 为 `http://localhost:20128`，password 为 `123456`，模型前缀为 `yjs`，节点为 `yjs`，上游为 `https://api.yjs.im/v1`，默认模型为 `deepseek-v4-flash-0731`。使用 `--name "<label 2>"` 注册另一个已创建的密钥——节点保持不变，每个密钥都会成为 9Router 可以进行负载均衡的另一个连接。然后在 9Router 中选择一个模型：
+
+```
+yjs/deepseek-v4-flash-0731
+yjs/glm-5.3
+```
+
+## 🔌 连接到 OmniRoute
+
+此工具创建的密钥是普通的 OpenAI 兼容凭据，因此本地 OmniRoute 实例可以像处理其他任何提供商一样使用它们：为 yjs.im 配置一个 `openai-compatible` 节点，每个密钥一个连接。
+
+```bash
+node src/connect-omniroute.js \
+  --base http://localhost:20128 --password 123456 \
+  --api-key <key>            # or env NINEROUTER_API_KEY
+```
+
+启动器菜单和 CLI 调度器驱动同一个连接器：
+
+```bash
+node src/launcher.js --connect-omniroute    # asks for base URL, password and key (the key is not echoed)
+node src/cli.js connect --api-key <key>   # the same task, non-interactive
+node src/connect-omniroute.js --help        # every flag and default
+```
+
+默认值：base 为 `http://localhost:20128`，password 为 `123456`，模型前缀为 `yjs`，节点为 `yjs`，上游为 `https://api.yjs.im/v1`，默认模型为 `deepseek-v4-flash-0731`。使用 `--name "<label 2>"` 注册另一个已创建的密钥——节点保持不变，每个密钥都会成为 OmniRoute 可以进行负载均衡的另一个连接。然后在 OmniRoute 中选择一个模型：
 
 ```
 yjs/deepseek-v4-flash-0731

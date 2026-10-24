@@ -12,9 +12,9 @@
  * accounts.json and out/ land next to the code, where the launcher, the probes
  * and the README look for them — and hands the caller's flags to the engine.
  *
- *   node src/mint.js                       # 30 keys, exits from proxies.txt
- *   node src/mint.js --count 5 --conc 2    # any number, two accounts at a time
- *   node src/mint.js --mail imap           # read the code from a real mailbox
+ *   node src/cli.js mint                       # 30 keys, exits from proxies.txt
+ *   node src/cli.js mint --count 5 --conc 2    # any number, two accounts at a time
+ *   node src/cli.js mint --mail imap           # read the code from a real mailbox
  */
 
 const fs = require('fs');
@@ -33,9 +33,10 @@ const DEFAULTS = { count: '30', 'poll-ms': '2000', 'code-wait': '300000', 'max-c
 
 const USAGE = `yjs-bulk-apikey · mint — one yjs.im account per key, live-verified
 
-usage: node src/mint.js [options]
+usage: node src/cli.js mint [options]
 
   --count N        keys to mint (default ${DEFAULTS.count})
+  --auto           captcha step automatic — DEFAULT, always on (no token on this rail)
   --pool FILE      exit list, one per line (default proxies.txt) — optional
   --mail MODE      emailnator (default) | imap — imap needs --imap-user/--imap-pass
   --imap-user U    mailbox account for --mail imap (or IMAP_USER)
@@ -57,7 +58,10 @@ usage: node src/mint.js [options]
 
 One exit is pinned per account when a pool is provided and held for that
 account's whole life; a dead line fails the attempt instead of falling back to a
-direct connection. With no pool at all the run goes direct and says so.`;
+direct connection. With no pool at all the run goes direct and says so.
+
+A key whose live gate fails is not dropped: it leaves keys.txt and is written to
+keys-dead.txt so a later run can re-check it.`;
 
 const argv = process.argv.slice(2);
 const one = (name) => {
@@ -75,11 +79,11 @@ if (argv.includes('--help') || argv.includes('-h')) {
 }
 
 const MAIL = one('mail') || eq('mail') || 'emailnator';
-if (MAIL === 'emailnator' && !fs.existsSync(path.join(__dirname, 'cloudflare-wai', 'emailnator.js'))) {
+if (MAIL === 'emailnator' && !fs.existsSync(path.join(__dirname, 'vendor', 'emailnator.js'))) {
   console.error(
-    `--mail ${MAIL} reads the code through src/cloudflare-wai/emailnator.js, which this repository does not ship.\n` +
+    `--mail ${MAIL} reads the code through src/vendor/emailnator.js, which this repository does not ship.\n` +
       'Use --mail imap with IMAP_USER/IMAP_PASS (any mailbox + app password; the alias per account is built for you),\n' +
-      'or drop that module in at src/cloudflare-wai/emailnator.js.'
+      'or drop that module in at src/vendor/emailnator.js.'
   );
   process.exit(2);
 }
@@ -135,5 +139,5 @@ process.argv = [
   ...Object.entries(DEFAULTS).flatMap(([k, v]) => [`--${k}`, v]),
 ];
 
-console.log(`yjs · ${count} key(s) · ${exits.length || 'direct'} exit(s) from ${path.basename(pool)} · keys land in keys.txt`);
+console.log(`yjs · ${count} key(s) · ${exits.length || 'direct'} exit(s) from ${path.basename(pool)} · keys land in keys.txt · unverified keys → keys-dead.txt`);
 require(path.join(__dirname, 'mint-newapi-pinned.js'));

@@ -19,8 +19,9 @@
 [![License](https://img.shields.io/badge/license-MIT-6ea8fe?style=for-the-badge)](LICENSE)
 [![Models](https://img.shields.io/badge/models-14%20free-412991?style=for-the-badge)](src/models.json)
 [![9Router](https://img.shields.io/badge/9Router-connector-8B5CF6.svg?style=for-the-badge)](#-connect-to-9router)
+[![OmniRoute](https://img.shields.io/badge/OmniRoute-connector-8B5CF6.svg?style=for-the-badge)](#-connect-to-omniroute)
 
-[🛠 Hızlı başlangıç](#-quick-start) · [✅ Doğrulanmış](#-verified-working--every-key-is-tested) · [🧭 Nasıl çalışır](#-how-it-works) · [🤖 Modeller ve ücretsiz katman](#-models--free-tier) · [🔌 9Router](#-connect-to-9router) · [⚙️ Seçenekler](#️-cli-options) · [🛰️ Proxy'ler](#️-behind-a-proxy) · [🐞 Sorunlar](#-issues)
+[🛠 Hızlı başlangıç](#-quick-start) · [✅ Doğrulanmış](#-verified-working--every-key-is-tested) · [🧭 Nasıl çalışır](#-how-it-works) · [🤖 Modeller ve ücretsiz katman](#-models--free-tier) · [🔌 9Router](#-connect-to-9router) · [🔌 OmniRoute](#-connect-to-omniroute) · [⚙️ Seçenekler](#️-cli-options) · [🛰️ Proxy'ler](#️-behind-a-proxy) · [🐞 Sorunlar](#-issues)
 
 </div>
 
@@ -166,6 +167,36 @@ Varsayılanlar: taban `http://localhost:20128`, parola `123456`, model öneki
 `yjs`, düğüm `yjs`, üst akış `https://api.yjs.im/v1`, varsayılan model
 `deepseek-v4-flash-0731`. Oluşturulmuş başka bir anahtarı `--name "<label 2>"` ile kaydedin — düğüm kalır ve
 her anahtar 9Router'ın yük dengeleyebileceği başka bir bağlantı olur. Ardından 9Router içinde bir model seçin:
+
+```
+yjs/deepseek-v4-flash-0731
+yjs/glm-5.3
+```
+
+## 🔌 OmniRoute'a bağlan
+
+Bu aracın oluşturduğu anahtarlar sıradan OpenAI uyumlu kimlik bilgileridir, bu yüzden yerel bir
+OmniRoute örneği bunları başka herhangi bir sağlayıcı gibi sunabilir: yjs.im için bir `openai-compatible`
+düğümü, anahtar başına bir bağlantı.
+
+```bash
+node src/connect-omniroute.js \
+  --base http://localhost:20128 --password 123456 \
+  --api-key <key>            # or env NINEROUTER_API_KEY
+```
+
+Başlatıcı menüsü ve CLI yönlendiricisi aynı bağlayıcıyı sürer:
+
+```bash
+node src/launcher.js --connect-omniroute    # asks for base URL, password and key (the key is not echoed)
+node src/cli.js connect --api-key <key>   # the same task, non-interactive
+node src/connect-omniroute.js --help        # every flag and default
+```
+
+Varsayılanlar: taban `http://localhost:20128`, parola `123456`, model öneki
+`yjs`, düğüm `yjs`, üst akış `https://api.yjs.im/v1`, varsayılan model
+`deepseek-v4-flash-0731`. Oluşturulmuş başka bir anahtarı `--name "<label 2>"` ile kaydedin — düğüm kalır ve
+her anahtar OmniRoute'ın yük dengeleyebileceği başka bir bağlantı olur. Ardından OmniRoute içinde bir model seçin:
 
 ```
 yjs/deepseek-v4-flash-0731

@@ -101,17 +101,34 @@ async function connectFlow() {
   run(['connect-9router.js', '--base', base, '--password', password, '--name', name, '--model', model]);
 }
 
+async function connectFlowOmni() {
+  console.log('\nOmniRoute — register this provider node and one API key with a local OmniRoute instance');
+  const base = await ask('OmniRoute base URL', 'http://localhost:20128');
+  const password = await ask('OmniRoute password', '123456');
+  const apiKey = await askSecret('API key to register (blank = skip)');
+  if (!apiKey) {
+    console.log('  no key given — nothing to register');
+    return;
+  }
+  const name = await ask('connection label', 'yjs.im');
+  const model = await ask('default model', 'deepseek-v4-flash-0731');
+  process.env.NINEROUTER_API_KEY = apiKey;
+  run(['connect-9router.js', '--base', base, '--password', password, '--name', name, '--model', model]);
+}
+
 async function main() {
   process.stdout.write('\x1b[2J\x1b[H');
   banner();
   console.log('  proxy exits: ' + (count(POOL) || 'none — running WITHOUT a proxy (direct)') + '     keys on disk: ' + count(KEYS) + '\n');
-  console.log('  1) mint      create fresh accounts and mint one key each');
+  console.log('  1) Mint keys  create fresh accounts and mint one key each');
   console.log('  2) Settings');
   console.log('  3) 9Router   register a key with a local 9Router instance (asks for base/password/key)');
   console.log('  0) Exit\n');
   const choice = await ask('choose', '1');
   if (choice === '1') {
-    run(['mint.js', ...argsFor('mint')]);
+    cfg.count = parseInt(await ask('How many keys?', cfg.count), 10) || cfg.count;
+    save();
+    run(['mint.js', '--auto', ...argsFor('mint')]);
   }
   else if (choice === '2') {
     await settings();
@@ -132,6 +149,15 @@ if (process.argv.includes('--help') || process.argv.includes('-h')) {
 }
 
 if (process.argv.includes('--connect-9router')) {
+  connectFlow()
+    .then(() => rl.close())
+    .catch((e) => { console.error('launcher failed:', e.stack || e.message); process.exit(1); });
+} else {
+  main().catch((e) => { console.error('launcher failed:', e.stack || e.message); process.exit(1); });
+}
+
+
+if (process.argv.includes('--connect-omniroute')) {
   connectFlow()
     .then(() => rl.close())
     .catch((e) => { console.error('launcher failed:', e.stack || e.message); process.exit(1); });
